@@ -1,0 +1,3 @@
+MDPSOLVE DEMO CHANGE LOG
+
+6/15/11 Changed demo file pests_catcount to use patchplot rather than mdpplot and changed parameter values
