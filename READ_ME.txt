@@ -79,14 +79,3 @@ To install the MDPSolve package:
      is "under construction" and there are known and unknown gaps in its coverage.
      Suggestions for improvement are welcome.
 
-7) This is the seventh step.
-
-Trying GitHub. Things are still not working. 
-
-Okay - let's introduce another conflict.
-
-
-Eric is working on his version and I'm on mine.
-
-Conflicts resolved.
-
