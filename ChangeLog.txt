@@ -2,6 +2,8 @@ MDPSOLVE CHANGE LOG
 Changes marked with a * indicate a bug fix or other change that could cause changes in the behavior
 of existing code. Other changes are either new features or changes to the documentation contained in the code.
 
+4/19/17	  moving to git
+
 7/23/15*  minor bug fix in ampdpassive   
 
 6/3/15    improved performance of xpomdpsim - now uses less memory and exhibits speed improvements
