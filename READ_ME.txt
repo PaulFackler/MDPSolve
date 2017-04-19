@@ -85,4 +85,8 @@ Trying GitHub. Things are still not working.
 
 Okay - let's introduce another conflict.
 
+
 Eric is working on his version and I'm on mine.
+
+Conflicts resolved.
+
