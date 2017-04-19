@@ -81,4 +81,4 @@ To install the MDPSolve package:
 
 7) This is the seventh step.
 
-Trying GitHub.
+Trying GitHub. Things are still not working.
