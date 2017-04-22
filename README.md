@@ -4,3 +4,4 @@ A MATLAB Toolbox for specifying and solving Markov Decision Problems (MDPs) with
 A website for MDPSolve is available at:
 https://sites.google.com/site/mdpsolve/
 
+For more information contact paul_fackler@ncsu.edu
