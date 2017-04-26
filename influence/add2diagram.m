@@ -1,6 +1,6 @@
 % add2diagram Adds a variable to an influence diagram
 % USAGE
-%   D=add2diagram(D,name,type,obs,parents,cpd);
+%   D=add2diagram(D,name,type,obs,parents,cpd,locs,attachments);
 % INPUTS
 %   D           : an existing influence diagram structure 
 %                  (empty if creating a new diagram)
