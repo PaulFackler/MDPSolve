@@ -1,22 +1,27 @@
-% add2diagram adds a variable to an influence diagram
+% add2diagram Adds a variable to an influence diagram
 % USAGE
 %   D=add2diagram(D,name,type,obs,parents,cpd);
 % INPUTS
-%   D       : an existing influence diagram structure 
-%              (empty if creating a new diagram)
-%   name    : string variable name
-%   type    : variable type
-%               's' current state
-%               'a' or 'd' action (decision)
-%               'f' future state
-%               'r' or 'u' reward (utility)
-%               'p' parameter
-%               'c' chance (not one of the above)
-%   obs     : 1 if variable is observed [the defualt], 0 if unobserved
-%   parents : cell array of strings listing the variable's parents 
-%   cpd     : rv structure (create using rvdef)
+%   D           : an existing influence diagram structure 
+%                  (empty if creating a new diagram)
+%   name        : string variable name
+%   type        : variable type
+%                   's' current state
+%                   'a' or 'd' action (decision)
+%                   'f' future state
+%                   'r' or 'u' reward (utility)
+%                   'p' parameter
+%                   'c' chance (not one of the above)
+%   obs         : 1 if variable is observed [the defualt], 0 if unobserved
+%   parents     : cell array of strings listing the variable's parents 
+%   cpd         : rv structure (create using rvdef)
+%   loc         : 2-vector of numbers on (0,1) specifying location on figure [optional]
+%   attachments : 2-column matrix of attachment locations for each parent 
+%                   and for own node (empty if variable has no parents)
+%                   attachments are in {1,...,8} and specify where on a
+%                   node an arc attaches
 % OUTPUT
-%   D       : updated influence diagram structure
+%   D           : updated influence diagram structure
 
 % MDPSOLVE: MATLAB tools for solving Markov Decision Problems
 % Copyright (c) 2014, Paul L. Fackler (paul_fackler@ncsu.edu)
@@ -48,7 +53,11 @@
 % For more information, see the Open Source Initiative OSI site:
 %   http://www.opensource.org/licenses/bsd-license.php
 
-function D=add2diagram(D,name,type,obs,parents,cpd)
+function D=add2diagram(D,name,type,obs,parents,cpd,locs,attachments)
+if nargin<8
+  attachments=[];
+if nargin<7
+  locs=[];
 if nargin<6
   cpd=[];
 if nargin<5
@@ -64,6 +73,8 @@ end;
 end; 
 end; 
 end; 
+end;
+end;
 if ischar(parents), parents={parents}; end
 if isempty(D)  
   n=1;
@@ -72,14 +83,20 @@ if isempty(D)
   D.obs=obs;
   if isempty(parents)
     D.parents={{}};
-  elseif ischar(parents)
+  elseif ischar(parents)  % this should never happen because no parents can be defined for the first variable
     D.parents={parents};
   else
     D.parents=parents;
   end
   D.cpds={cpd};
-  D.cpdnames={inputname(6)};
+  if nargin>=6
+    D.cpdnames={inputname(6)};
+  else
+    D.cpdnames={[]};
+  end
   D.values={};
+  D.locs=locs;
+  D.attachments=zeros(0,4);
 else
   n=length(D.names)+1;
   D.names{n}=name;
@@ -93,7 +110,20 @@ else
     D.parents{n}=parents;
   end
   D.cpds{n}=cpd;
-  D.cpdnames{n}=inputname(6);
+  if nargin>=6
+    D.cpdnames{n}=inputname(6);
+  else
+    D.cpdnames{n}=[];
+  end
+  D.locs=[D.locs;locs];
+  [check,pnum]=ismember(parents,D.names);
+  if ~isempty(pnum)
+    if isempty(attachments)% use default values 5 & 1  
+      D.attachments=[D.attachments; [pnum' n+zeros(length(pnum),1) 5+zeros(length(pnum),1) ones(length(pnum),1)]];
+    else 
+      D.attachments=[D.attachments; [pnum' n+zeros(length(pnum),1) attachments]];
+    end
+  end
 end
 
 if ~isempty(cpd)
@@ -133,7 +163,6 @@ elseif isstruct(cpd)
     D.cpds{end}=getmatchfunc(cpd,D.values(pp));
   end
 end
-D.locs=[];
 
 ii=ismember(parents,D.names);
 if ~all(ii)
