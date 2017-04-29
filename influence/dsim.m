@@ -1,16 +1,15 @@
 % dsim Simulates variables in an Influence Diagram
 % USAGE
-%   S=dsim(D,S0,reps,T,A,pval);
+%   Y=dsim(D,s0,T,A,pval);
 % INPUTS
 %   D     : an influence diagram structure
-%   S0    : initial state values (1 x ns vector or reps x ns matrix)
-%   reps  : number of replications (number of paths)
+%   s0    : initial state values (1 x ns vector or reps x ns matrix)
 %   T     : time horizon
-%   A     : nsxda matrix representing the strategy
+%   A     : ns x da matrix representing the strategy
 %   pval  : parameter values (if any variables are parameter type an
 %             assumed value must be specified)
 % OUTPUT
-%   S    : d-element cell array containing reps x T+1 matrices, one
+%   Y     : d-element cell array containing reps x T+1 matrices, one
 %            for each of the d variables in the diagram
 % 
 % A(i,j) is the value of action j taken when the current state is state i. 
@@ -49,16 +48,17 @@
 % For more information, see the Open Source Initiative OSI site:
 %   http://www.opensource.org/licenses/bsd-license.php
 
-function S=dsim(D,S0,reps,T,A,pval)
+function Y=dsim(D,s0,T,A,pval)
 
 d=length(D.names);
+reps=size(s0,1);
 types=D.types;
 if nargin<6 && any(ismember(types,'p'))
   error('parameter values must be specified when parameters are included')
 end
 cpds=D.cpds;
 parents=getparents(D);
-S=cell(1,d);
+Y=cell(1,d);
 St=cell(1,d);
 ns=0;
 na=0;
@@ -83,19 +83,19 @@ for i=1:d
   if strcmp(cpdi.type,'d') && ~isempty(parents{i}) && isempty(cpdi.parameters)
     cpds{i}=getmatchfunc(cpdi,D.values(parents{i}));
   end
-  S{i}=zeros(reps,T);
+  Y{i}=zeros(reps,T);
   switch types{i}
     case 's'
       ns=ns+1;
-      switch size(S0,1)
+      switch size(s0,1)
         case 1
-          St{i}=S0(ones(reps,1),ns);
+          St{i}=s0(ones(reps,1),ns);
         case reps
-          St{i}=S0(:,ns);
+          St{i}=s0(:,ns);
         otherwise
           error('S0 must have one or reps rows')
       end
-      S{i}(:,1)=St{i}; 
+      Y{i}(:,1)=St{i}; 
     case {'a','d'}
       na=na+1;
       match(i)=na;
@@ -136,7 +136,7 @@ for t=1:T
       % nothing to do
     case {'a','d'}
       St{i}=A(ind,match(i));   
-      S{i}(:,t)=St{i}; 
+      Y{i}(:,t)=St{i}; 
     case {'c','u','r','f','h'}
       switch vartypes(i)
       case 1
@@ -145,9 +145,9 @@ for t=1:T
         St{i}=rvgen(reps,cpds{i},St(parents{i}));
       end
     end
-    S{i}(:,t)=St{i};
+    Y{i}(:,t)=St{i};
     if types{i}=='f' && t<T
-      S{match(i)}(:,t+1)=St{i};
+      Y{match(i)}(:,t+1)=St{i};
     end
   end
   % change future states to current states
