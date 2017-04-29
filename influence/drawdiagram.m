@@ -38,21 +38,10 @@
 %   obsfactor       : factor on [0,1] to reduce saturation for 
 %                       non-observed variables [0.15]
 %   nodeedgewidth   : width of the line defining the nodes [1]
-%   arcflag         : 0 arcs are connected at closest points
-%                     1 arcs go from rightmost point to leftmost point 
-%                     2 arcs go from bottom point to top point [0]
+%   arcflag         : false to force arcs to go from 
+%                       rightmost point to leftmost point [false]
 %   arcwidth        : width of the arcs [2]
 %   archeadsize     : size of arc arrow heads [1]
-%   confirmationboxes : if true user must confirm certain choices [false]
-%                          use F7 to toggle this
-%   undirected        : true for undirected graphs (superceeds dag) [false]
-%   dag               : true for DAG (Directed Acyclic Graph) [true]
-%   generic           : true for non-MDPSolve graph [false]
-%   nodefunc          : handle to a node edit box  '
-%   shapes            : k-vector on {1,...,7} mapping types to shapes 
-%   typestring        : k-vector of letter designations for types
-%   types             : q-vector (q<=k) of integers 
-  
 %
 % All units are normalized to the figure window
 % All colors are RGB triplets (see MATLAB color documentation)
@@ -75,12 +64,11 @@
 % Each variable (node) has a structure associated with it 
 %   that is stored in handle.UserData and contains fields:
 %     texthandle : handle to the text object
-%     type       : variable type (positive integer)
-%                     default is s=1, a,d=2, f=3, u,r=4, c=5, p=6
+%     type       : variable type (s, f, a, d, u, r, c or p)
 %     obs        : true/false indicator if variable is observed
 %     cpd        : string that defines the Conditional Probability Distribution
-%     inarcs     : vector of arc handles entering node
-%     outarcs    : vector of arc handles exiting node
+%     inarcs     : vector of arc handless entering node
+%     outarcs    : vector of arc handless exiting node
 % 
 % Each arc has a structure associated with it 
 %   that is stored in handle.UserData and contains fields:
@@ -136,72 +124,33 @@ figinfo.fontsize = 0.035;
 figinfo.fontname = 'Rockwell';
 figinfo.addnumbers=false;
 figinfo.backgroundcolor=[.85 .85 .85];
+figinfo.nodecolor   = [0 .95 .9];
 figinfo.obsfactor = 0.15;
 figinfo.nodeedgewidth=1;
-figinfo.arcflag=0;
+figinfo.arcflag=false;
 figinfo.arcwidth=2;
-figinfo.archeadsize=0.75;
+figinfo.archeadsize=1;
 figinfo.boxsize=1;
-figinfo.confirmationboxes=false;
-figinfo.undirected=false;
-figinfo.dag=true;
-figinfo.generic = false;
-figinfo.nodeedit = @getnewvariable;
-figinfo.typestring='sadfurcp';    % valid letters to designate types
-figinfo.types=[1 2 2 3 4 4 5 6];  % mapping from letter types to type #
-figinfo.shapes=[2 1 2 4 5 3];     % mapping from type # to shape #
+figinfo.noyesnoboxes=false;
 if nargin>=2 && ~isempty(options)
-  if isfield(options,'figpos'),            figinfo.figpos=options.figpos;                       end
-  if isfield(options,'name'),              figinfo.name=options.name;                           end
-  if isfield(options,'fontsize'),          figinfo.fontsize=options.fontsize;                   end
-  if isfield(options,'fontname'),          figinfo.fontname=options.fontname;                   end
-  if isfield(options,'addnumbers'),        figinfo.addnumbers=options.addnumbers;               end
-  if isfield(options,'backgroundcolor'),   figinfo.backgroundcolor=options.backgroundcolor;     end
-  if isfield(options,'nodecolor'),         figinfo.nodecolor=options.nodecolor;                 end
-  if isfield(options,'statecolor'),        figinfo.statecolor=options.statecolor;               end
-  if isfield(options,'actioncolor'),       figinfo.actioncolor=options.actioncolor;             end
-  if isfield(options,'utilitycolor'),      figinfo.utilitycolor=options.utilitycolor;           end
-  if isfield(options,'chancecolor'),       figinfo.chancecolor=options.chancecolor;             end
-  if isfield(options,'paramcolor'),        figinfo.paramcolor=options.paramcolor;              end
-  if isfield(options,'obsfactor'),         figinfo.obsfactor=options.obsfactor;                end
-  if isfield(options,'nodeedgewidth'),     figinfo.nodeedgewidth=options.nodeedgewidth;         end
-  if isfield(options,'arcflag'),           figinfo.arcflag=options.arcflag;                     end
-  if isfield(options,'arcwidth'),          figinfo.arcwidth=options.arcwidth;                   end
-  if isfield(options,'archeadsize'),       figinfo.archeadsize=options.archeadsize;             end
-  if isfield(options,'confirmationboxes'), figinfo.confirmationboxes=options.confirmationboxes; end
-  if isfield(options,'undirected'),        figinfo.undirected=options.undirected;               end
-  if isfield(options,'dag'),               figinfo.dag=options.dag;                             end
-  if isfield(options,'generic'),           figinfo.generic=options.generic;                     end
-  if isfield(options,'nodeedit'),          figinfo.nodeedit=options.nodeedit;                   end
-  if isfield(options,'shapes'),            figinfo.shapes=options.shapes;                       end
-  if isfield(options,'typestring'),        figinfo.typestring=options.typestring;               end
-  if isfield(options,'types'),             figinfo.types=options.types;                         end
-  if isfield(options,'modecolor'),         figinfo.nodecolor=options.nodecolor;                 end
+  if isfield(options,'figpos'),           figinfo.figpos=options.figpos;                     end
+  if isfield(options,'name'),             figinfo.name=options.name;                         end
+  if isfield(options,'fontsize'),         figinfo.fontsize=options.fontsize;                 end
+  if isfield(options,'fontname'),         figinfo.fontname=options.fontname;                 end
+  if isfield(options,'addnumbers'),       figinfo.addnumbers=options.addnumbers;             end
+  if isfield(options,'backgroundcolor'),  figinfo.backgroundcolor=options.backgroundcolor;   end
+  if isfield(options,'nodecolor'),        figinfo.nodecolor=options.nodecolor;               end
+  if isfield(options,'statecolor'),       figinfo.statecolor=options.statecolor;             end
+  if isfield(options,'actioncolor'),      figinfo.actioncolor=options.actioncolor;           end
+  if isfield(options,'utilitycolor'),     figinfo.utilitycolor=options.utilitycolor;         end
+  if isfield(options,'chancecolor'),      figinfo.chancecolor=options.chancecolor;           end
+  if isfield(options,'paramcolor'),       figinfo.paramcolor =options.paramcolor;            end
+  if isfield(options,'obsfactor'),        figinfo.obsfactor =options.obsfactor;              end
+  if isfield(options,'nodeedgewidth'),    figinfo.nodeedgewidth=options.nodeedgewidth;       end
+  if isfield(options,'arcflag'),          figinfo.arcflag=options.arcflag;                   end
+  if isfield(options,'arcwidth'),         figinfo.arcwidth=options.arcwidth;                 end
+  if isfield(options,'archeadsize'),      figinfo.archeadsize=options.archeadsize;           end
   %if isfield(options,''),  figinfo.=options.;   end
-end
-if figinfo.undirected, figinfo.dag=false; figinfo.archeadsize=0; end
-figinfo.addnode=@addnode;
-figinfo.unselect=@unselect;
-
-if ~isfield(figinfo,'nodecolor')
-  nodecolor   = repmat([0 .95 .9],length(figinfo.shapes),1);
-  if isfield(figinfo,'statecolor'),   
-    nodecolor(1,:)=figinfo.statecolor;
-    nodecolor(3,:)=figinfo.statecolor;
-  end
-  if isfield(figinfo,'chancecolor'),   
-    nodecolor(4,:)=figinfo.chancecolor;
-  end
-  if isfield(figinfo,'paramcolor'),   
-    nodecolor(6,:)=figinfo.paramcolor;
-  end
-  if isfield(figinfo,'actioncolor'),   
-    nodecolor(2,:)=figinfo.actioncolor;
-  end
-  if isfield(figinfo,'utilitycolor'),   
-    nodecolor(4,:)=figinfo.utilitycolor;
-  end
-  figinfo.nodecolor=nodecolor;
 end
 
 set(gcf,'color',figinfo.backgroundcolor,...
@@ -242,17 +191,7 @@ else
   figinfo.nodes=zeros(d,1);
   % draw the nodes
   for i=1:d
-    type=D.types{i};
-    if ischar(type)
-      type=figinfo.types(figinfo.typestring==type);
-    end
-    if isfield(D,'cpdnames')
-      figinfo.nodes(i)=addnode(D.locs(i,:),D.names{i},type,D.obs(i),D.cpdnames{i});
-    elseif isfield(D,'obs')
-      figinfo.nodes(i)=addnode(D.locs(i,:),D.names{i},type,D.obs(i),[]);
-    else
-      figinfo.nodes(i)=addnode(D.locs(i,:),D.names{i},type,true,[]);
-    end
+    figinfo.nodes(i)=addnode(D.locs(i,:),D.names{i},D.types{i},D.obs(i),D.cpdnames{i});
   end
   set(cf,'UserData',figinfo);
 
@@ -305,14 +244,34 @@ set(cf,'Visible','on');
 function h2=addnode(loc,name,type,obs,cpd,h2)
   cf=gcf;
   figinfo=get(cf,'UserData');
-  nodecolor=figinfo.nodecolor;
-  if size(nodecolor,1)>1, nodecolor=nodecolor(type,:); end
+  switch type
+    case {'s','f'}
+      if isfield(figinfo,'statecolor'),   nodecolor=figinfo.statecolor;
+      else                                nodecolor=figinfo.nodecolor;
+      end
+    case 'c'
+      if isfield(figinfo,'chancecolor'),  nodecolor=figinfo.chancecolor;
+      else                                nodecolor=figinfo.nodecolor;
+      end
+    case 'p'
+      if isfield(figinfo,'paramcolor'),   nodecolor=figinfo.paramcolor;
+      else                                nodecolor=figinfo.nodecolor;
+      end
+    case {'a','d'}
+      if isfield(figinfo,'actioncolor'),  nodecolor=figinfo.actioncolor;
+      else                                nodecolor=figinfo.nodecolor;
+      end
+    case {'r','u'}
+      if isfield(figinfo,'utilitycolor'),  nodecolor=figinfo.utilitycolor;
+      else                                 nodecolor=figinfo.nodecolor;
+      end
+  end
   if ~obs, 
     nodecolor=1-(1-nodecolor)*figinfo.obsfactor; 
   end
   
   % define text object
-  %loc(1)=ceil(loc(1)*512)/512; % helps prevent leftward drift due to rounding
+  loc(1)=ceil(loc(1)*512)/512; % helps prevent leftward drift due to rounding
   h1 = text(loc(1),loc(2),name);
   set(h1,'BackgroundColor',nodecolor,...
       'HorizontalAlignment','center','VerticalAlignment','middle',...
@@ -323,9 +282,21 @@ function h2=addnode(loc,name,type,obs,cpd,h2)
   %set(h1,'Units','pixels'); set(h1,'Units','data');
   ex=get(h1,'extent');
   if length(name)<3, ex(1)=ex(1)-ex(3)/2; ex(3)=ex(3)*2; end
-  ex=ex+[-0.15*ex(3) -0.15*ex(4) 0.3*ex(3) 0.3*ex(4)];
+  ex=ex+[-0.15*ex(3) -0.15*ex(4) 0.3*ex(3) 0.4*ex(4)];
   set(h1,'ButtonDownFcn',@mouseclick);
-  [x,y]=getshape(ex,figinfo.shapes(type));
+  
+  switch type
+    case {'s','f'}
+      [x,y]=gethexagonxy(ex);
+    case {'p'}
+      [x,y]=getparamxy(ex);
+    case {'c'}
+      [x,y]=getellipsexy(ex);
+    case {'a','d'}
+      [x,y]=getrectanglexy(ex);
+    case {'r','u'}
+      [x,y]=getdiamondxy(ex);
+  end
   if nargin<6 || isempty(h2)
     h2=patch(x,y,nodecolor);
     nodeinfo.inarcs=[];
@@ -336,7 +307,7 @@ function h2=addnode(loc,name,type,obs,cpd,h2)
     delete(nodeinfo.texthandle);
     set(h2,'XData',x,'Ydata',y,'FaceColor',nodecolor);
   end
-  %if ~isempty(cpd) && cpd==2, set(h2,'LineWidth',figinfo.nodeedgewidth*2); end
+  if cpd==2, set(h2,'LineWidth',figinfo.nodeedgewidth*2); end
   nodeinfo.texthandle=h1;
   nodeinfo.type=type;
   nodeinfo.obs=obs;
@@ -345,32 +316,28 @@ function h2=addnode(loc,name,type,obs,cpd,h2)
   set(h1,'Userdata',h2,'Tag','nodetext')  % store patch handle with text object
   uistack(h1,'bottom')
   uistack(h2,'bottom')
-
-function   [x,y]=getshape(ex,shape)
-switch shape
-case 1  % rectangle
+  
+function [x,y]=getrectanglexy(ex)
 x=[ex(1)         ex(1) ex(1)+ex(3)/2  ex(1)+ex(3) ex(1)+ex(3)   ex(1)+ex(3)  ex(1)+ex(3)/2 ex(1)       ex(1)];
 y=[ex(2)+ex(4)/2 ex(2) ex(2)          ex(2)       ex(2)+ex(4)/2 ex(2)+ex(4)  ex(2)+ex(4)   ex(2)+ex(4) ex(2)+ex(4)/2];
-case 2  % hexagon - bent sides
+
+function [x,y]=gethexagonxy(ex)
 x=[ex(1)-ex(4)/6    ex(1)  ex(1)+ex(3)/2  ex(1)+ex(3) ex(1)+ex(3)+ex(4)/6   ex(1)+ex(3)  ex(1)+ex(3)/2   ex(1)         ex(1)-ex(4)/6];
 y=[ex(2)+ex(4)/2    ex(2)  ex(2)          ex(2)       ex(2)+ex(4)/2         ex(2)+ex(4)  ex(2)+ex(4)     ex(2)+ex(4)   ex(2)+ex(4)/2];
-case 3  % hexagon - flat sides
+
+function [x,y]=getparamxy(ex)
 x=[ex(1)           ex(1)  ex(1)+ex(3)/2  ex(1)+ex(3)  ex(1)+ex(3)    ex(1)+ex(3)  ex(1)+ex(3)/2     ex(1)       ex(1)];
 y=[ex(2)+ex(4)/2   ex(2)  ex(2)-ex(4)/5  ex(2)        ex(2)+ex(4)/2  ex(2)+ex(4)  ex(2)+ex(4)*6/5   ex(2)+ex(4) ex(2)+ex(4)/2];
-case 4  % diamond
+
+function [x,y]=getdiamondxy(ex)
 x=[ex(1)-ex(3)/2  ex(1)            ex(1)+ex(3)/2   ex(1)+ex(3)      ex(1)+1.5*ex(3)  ex(1)+ex(3)     ex(1)+ex(3)/2     ex(1)             ex(1)-ex(3)/2];
 y=[ex(2)+ex(4)/2  ex(2)+ex(4)/12   ex(2)-ex(4)/3   ex(2)+ex(4)/12   ex(2)+ex(4)/2    ex(2)+7/8*ex(4) ex(2)+1.25*ex(4)  ex(2)+7/8*ex(4)   ex(2)+ex(4)/2];
-case 5  % ellispe
+
+function [x,y]=getellipsexy(ex)
 x=linspace(-pi,pi,41);
 y=sin(x)*ex(4)*.65+ex(2)+ex(4)/2;
 x=cos(x)*ex(3)*.5+ex(1)+ex(3)/2;
-case 6  % skewed hexagon
-x=[ex(1)         ex(1)+ex(3)/7 ex(1)+ex(3)*4/7  ex(1)+ex(3) ex(1)+ex(3)   ex(1)+ex(3)*6/7  ex(1)+ex(3)*3/7 ex(1)       ex(1)];
-y=[ex(2)+ex(4)/2 ex(2) ex(2)          ex(2)       ex(2)+ex(4)/2 ex(2)+ex(4)  ex(2)+ex(4)   ex(2)+ex(4) ex(2)+ex(4)/2];
-case 7  % skewed hexagon
-x=[ex(1)         ex(1) ex(1)+ex(3)*3/7  ex(1)+ex(3)*6/7 ex(1)+ex(3)   ex(1)+ex(3)  ex(1)+ex(3)*4/7 ex(1)+ex(3)/7       ex(1)];
-y=[ex(2)+ex(4)/2 ex(2) ex(2)          ex(2)       ex(2)+ex(4)/2 ex(2)+ex(4)  ex(2)+ex(4)   ex(2)+ex(4) ex(2)+ex(4)/2];
-end
+
 
 function deletenode(h)
   cf=gcf;
@@ -396,18 +363,12 @@ function h=addarc(pp,pc,attachments)
   if nargin>2
     loc1=loc1(attachments(1),:);
     loc2=loc2(attachments(2),:);
+  elseif arcflag
+     [loc1,loc2,attachments]=mindist(loc1,loc2);
   else
-    switch arcflag
-      case 1
-        attachments=[5 1]; loc1=loc1(5,:); loc2=loc2(1,:);
-      case 2
-        attachments=[3 7]; loc1=loc1(3,:); loc2=loc2(7,:);
-      otherwise
-        [loc1,loc2,attachments]=mindist(loc1,loc2);
-    end
+    attachments=[5 1];
+    loc1=loc1(5,:); loc2=loc2(1,:);
   end
-  loc1=max(0,loc1);
-  loc2=max(0,loc2);
   h=annotation('arrow',[loc1(1) loc2(1)],[loc1(2) loc2(2)]);
   set(h,'headwidth', get(h,'headwidth')*figinfo.archeadsize,...
         'headlength',get(h,'headlength')*figinfo.archeadsize,...
@@ -474,9 +435,8 @@ loc1=set1(attachments(1),:);
 loc2=set2(attachments(2),:);
 
 % check if variables pc and pp are okay to join
-% can't join if already joined or if they are the same
+% can't join if already joined or is they are the same
 function ok=ok2addarc(pp,pc)
-ok = true;
 if pc==pp
   ok=false; return
 end
@@ -494,8 +454,7 @@ end
 if any(ismember(nodepinfo.outarcs,nodecinfo.inarcs))
   ok=false; return
 end
-figinfo=get(gcf,'UserData');
-if figinfo.dag, ok=checkDAG(pp,pc); end
+ok=checkDAG(pp,pc);
 return
 
 function DAG=checkDAG(hp,hc)
@@ -549,7 +508,7 @@ if isfield(figinfo,'nodes')
     nodeinfo=get(hi,'UserData');
     pos=get(nodeinfo.texthandle,'Position');
     switch dir
-      case 'up'    
+      case 'up'
         pos(2)=pos(2)+0.01;
       case 'down'
         pos(2)=pos(2)-0.01;
@@ -621,8 +580,7 @@ switch evnt.Key
       %okbox('No variable selected')
     elseif gui.nodeselected
       %unselect(gui.currenthandle)
-      figinfo=get(cf,'UserData');
-      figinfo.nodeedit(gui.currenthandle,@closenodebox)
+      getnewvariable(gui.currenthandle)
       set(gca,'UserData',[]);
       redraw
     end
@@ -661,18 +619,14 @@ switch evnt.Key
   case 'f6'
     dname = inputdlg('Enter diagram name:','',1,{'D'},'on');
     if ~isempty(dname)
-      figinfo=get(cf,'UserData');
-      typestring=figinfo.typestring;
-      [~,ii]=unique(figinfo.types); 
-      updatediagram([],gcf,2,dname{1},typestring(ii));
-      %updatediagram([],gcf,2,dname{1},typestring);
+      updatediagram([],gcf,2,dname{1});
     end
   case 'f7'
     figinfo=get(cf,'UserData');
-    if figinfo.confirmationboxes
-      figinfo.confirmationboxes=false;
+    if figinfo.noyesnoboxes
+      figinfo.noyesnoboxes=false;
     else
-      figinfo.confirmationboxes=true;
+      figinfo.noyesnoboxes=true;
     end
     set(cf,'UserData',figinfo);
   case 'f8'
@@ -713,7 +667,7 @@ figinfo=get(cf,'UserData');
 switch get(h,'Tag')
   case 'node'
     nodedata=get(h,'UserData');
-    if isfield(nodedata,'cpd') && isnumeric(nodedata.cpd) && numel(nodedata.cpd)==1 && nodedata.cpd==2
+    if nodedata.cpd==2
       set(h,'EdgeColor',[1 0 0],'LineWidth',figinfo.nodeedgewidth*3)
     else
       set(h,'EdgeColor',[1 0 0],'LineWidth',figinfo.nodeedgewidth*3)
@@ -728,7 +682,7 @@ figinfo=get(cf,'UserData');
 switch get(h,'Tag')
   case 'node'
     nodedata=get(h,'UserData');
-    if isnumeric(nodedata.cpd) && ~isempty(nodedata.cpd) && nodedata.cpd==2
+    if nodedata.cpd==2
       set(h,'EdgeColor',[0 0 0],'LineWidth',figinfo.nodeedgewidth)
     else
       set(h,'EdgeColor',[0 0 0],'LineWidth',figinfo.nodeedgewidth)
@@ -853,8 +807,7 @@ switch type
     switch seltype
       case 'alt'
       case 'normal'
-        figinfo=get(cf,'UserData');
-        figinfo.nodeedit([],@closenodebox)
+        getnewvariable([])
     end
 end
 
@@ -1053,19 +1006,18 @@ Message={...
   'F4 to change the font',  ...
   'F5 toggle the Toolbar and Menubar on and off',...
   'F6 to print out current diagram information (runs updatediagram)',...
-  'F7 to toggle confirmation boxes',...
   'Arrow, PgUp, PgDn, Home and End keys alter size and location'};
-okbox(Message,[.3 .45],[],'Left')
+okbox(Message,[.3 .4],[],'Left')
 
 
 %%%%%%%%%% UI control for new variables
-function getnewvariable(h,closebox)
+function getnewvariable(h)
 cf=gcf;
 figinfo=get(cf,'UserData');
 if isempty(h)
   name='';
-  type=1;
-  obs=1;
+  type='s';
+  obs=2;
   cpd='';
 else
   nodeinfo=get(h,'UserData');
@@ -1121,8 +1073,14 @@ ht(5)=uicontrol(hbt,'Style','radiobutton','Units','normalized',...
   'String','chance (c)',      'Value',0,'Position',[.05 3/13 .8 .12],'BackgroundColor',backgroundcolor);
 ht(6)=uicontrol(hbt,'Style','radiobutton','Units','normalized',...
   'String','parameter (p)',   'Value',0,'Position',[.05 1/13 .8 .12],'BackgroundColor',backgroundcolor);
-set(hbt,'SelectedObject',ht(type));
- 
+switch type
+  case 's', set(hbt,'SelectedObject',ht(1));
+  case 'a', set(hbt,'SelectedObject',ht(2));
+  case 'f', set(hbt,'SelectedObject',ht(3));
+  case 'u', set(hbt,'SelectedObject',ht(4));
+  case 'c', set(hbt,'SelectedObject',ht(5));
+  case 'p', set(hbt,'SelectedObject',ht(6));
+end   
 
 hbo=uibuttongroup('Parent',f,'FontSize',10,'Title','Observed',...
   'Position',[.55 .575 .4 .25],'BackgroundColor',backgroundcolor,'SelectionChangeFcn',@changeobs);
@@ -1161,7 +1119,6 @@ set(gca,'Visible','off')
 %Make the GUI visible.
 drawnow
 set(f,'Visible','on')
-drawnow
 uicontrol(uname)
 
 function changename(src,evnt)
@@ -1180,8 +1137,21 @@ end
 function changestyle(src,evnt)
 cf=gcf;
 data=get(cf,'UserData');
-% variable type
-data{2}=7-find(ismember(get(src,'Children'), get(src,'SelectedObject')));
+ii=find(ismember(get(src,'Children'), get(src,'SelectedObject')));
+switch ii
+  case 1
+    data{2}='p';
+  case 2
+    data{2}='c';
+  case 3
+    data{2}='u';
+  case 4
+    data{2}='f';
+  case 5
+    data{2}='a';
+  case 6
+    data{2}='s';
+end
 set(cf,'UserData',data);
 
 function changeobs(src,evnt)
@@ -1233,7 +1203,7 @@ function yesnobox(Question,size,fontname)
 cf=gcf;
 figinfo=get(cf,'UserData');
 gui=get(gca,'UserData');
-if ~figinfo.confirmationboxes
+if figinfo.noyesnoboxes
   gui.yesnoboxresult=true;
   set(gca,'UserData',gui);
   return
