@@ -1,0 +1,141 @@
+MDPSOLVE CHANGE LOG
+Changes marked with a * indicate a bug fix or other change that could cause changes in the behavior
+of existing code. Other changes are either new features or changes to the documentation contained in the code.
+
+7/23/15*  minor bug fix in ampdpassive   
+
+6/3/15    improved performance of xpomdpsim - now uses less memory and exhibits speed improvements
+
+4/14/15*  fixed bug in dompurge.c used by pomdpsolve (incremental pruning algorithm for POMDPs). A new 64 bit MEX file was               created (the 32 bit version was not affected by the bug)
+
+4/14/15   Added a transpose feature into ckronx and updated documentation
+
+3/20/15*  fixed a bug in d2model that computed models incorrectly when parameter uncertainty is present and a
+          conditional expectation function approach was requested
+
+2/24/15*  fixed minor bugs in drawdiagram
+
+2/18/15   added evalstrategy and getstrategies (see on-line documentation)
+
+2/28/14   New version with many new features described in the enhancements document.
+
+8/30/13*  Fixed bug in kronrow.c that made the 64 bit version crash. This utility is not often used.
+          It's companion kroncol did not have the bug.
+
+12/20/12  edited mdpsolve_Inf_Stage lines 113-114 to remove checks during run because a P matrix size error is
+          incorrectly generated if ns changes across stages
+
+          edited mdp_unpack lines 378-390 to pass the correct value of ns to checkP
+
+1/22/12   Corrected a bug in mdp_checks that produced an incorrect error message when problems arose with the EV function.
+
+11/22/11  Added a check to mdpsolve to check for the presence of NaNs in transition matrix. This can result, for example, from
+          a 0/0 operation.   
+
+11/22/11* Changed g2P so g function is passed a q-element row vector of noise terms by default. 
+          Previously this row vector was expanded to be kxq matrix with each row the same. This can still be
+          obtained by setting options.expande=1.
+
+11/21/11* Corrected amdp to append the belief states to the augmented state action combinations (Xb)
+
+7/24/11  Altered simplexbas to make the indexing consistent with the way simplexindex is written.
+
+7/23/11  Altered simplexindex to use multiset table in standard order. This makes it consistent with the mex files and
+           other programs that using simplex indexing. It also allows the table of multiset coefficients to be precomputed
+           and passed into simplexindex (for many repeated calls with the same values of q and p this cas be a big time saver).
+           Finally it allows the inputs to be of any type and handles 64 indexing.
+
+7/23/11  Altered the algorithm used by simplexgrid to avoid unecessary out-of-memory errors. Also to allow the user 
+           to pre-specify the data type.
+
+7/23/11  Modified match to allow non-double inputs - this uses the m-file version as integer data types are not
+           supported by the kdtree procedures.
+
+7/21/11  Added the EV option to modified policy iteration (for non-staged models only). If the EV function allows
+           two input arguments the current option policy vector is passed and an ns vector (rather than an nx vector)
+           should be returned.
+
+7/21/11  Added warning 51 to mdpreport ("Policy iteration not implemented with EV option")
+
+7/11/11  Added a feature to catcountP to create a sparse matrix. 
+
+7/4/11   Added the possability of passing a function to mergeP to compute a conditional transition matrix.
+           This has the potential to save memory because all of the conditional matrices do not have to be
+           stored. The procedure still could encounter problems with memory in sparse matrix situations.
+
+7/2/11*  Edited multisum to pass double rather than uint32 data type to probabiity function. Due to
+           Matlab's limited support for integer data types, this will prevent problems that could
+           arise if evaluating a unit probability matrix that depends on X. Also changed catcountP to
+           ensure the same behavior.
+
+7/1/11   Added an additional feature of mfpt to compute the mean first passage time before a specified
+           set of states is reached. Also allows for column or row stochastic matrices. If a matrix
+           is doubley stochastic mfpt assumes that rows are associated with current states but a
+           warning is printed.
+
+6/27/11  Made rectbas and freudenthal both have a cleanup option that matches the one passed to g2P
+           which now has 3 options (0/1/2). The 2 value truncates each point so no extrapolation occurs. 
+           The old value of noextrap for rectbas still works as before.
+           Similarly cleanup works the same in g2P but passing a value of 2 provides the new option.
+
+6/27/11  Added the procedure mergeP to the mdptools directory. This is a simplification and
+           replacement for mergestates which is made obsolete and will not be supported.
+
+6/25/11  Added a warning in f2P if the P matrix created has NaNs (these can occur due to 0/0
+           operations). Also added a check for 0 column sums and a warning about this.
+
+6/25/11  Added an additional argument to simplex grid to specify restrictions on the maximum value
+           in each column.
+
+6/24/11  Changed getI to take a third argument and use match. Added warning to documentation about
+           possability that indices are incorrect if there are omitted values.
+
+6/24/11  Replaced match with a call to the kdtree utilities of Steven Michael (smichael@ll.mit.edu)
+           which are now provided as a subdirectory of the mdputils directory. Also changed the 
+           m-code version of match to use Yi Cao's fast m-code implementation.
+
+6/23/11* Fixed catcountP to handle case when n>m. Also added an option to return P as a cell array
+            with each element containing a column of P (only implemented if MEX file getpzc is used)
+
+6/19/11  Fixed minor typo in documentation of pomdp
+
+6/19/11  Added amdpDir to mdptools directory - this implements the Multinomial-Dirichlet approach to 
+           adaptive management. The User's Guide has not been updated however.
+
+6/18/11  Added MEX version of icdfbeta to probability folder because Matlab's betainc is slow and also
+           not part of the basic MATLAB language (it is in the Statistics Toolbox). Note the m-file
+           version of icdfbeta still calls betainc.
+
+6/18/11* Changed rectbas so it accepts logical values for evenspacing
+
+6/18/11  Added a check to qnwnorm for positive definitness of the covariance matrix and adjusted the output
+           if this fails. The check requires that sqrtm(V) is real. If not x is set to real(z*sqrtm(V)).
+
+6/12/11* Changed catcountP to avoid log of 0 warnings. Also changed multisum to handle -inf*0 issue 
+           differntly (now -inf in logp is converted to -realmax so exp(x*logp)=1 if x=0 and 0 otherwise).
+
+6/11/11  Added qnwnormeven to probability directory. This function get quadrature nodes and weights
+           for the normal distribution that are evenly spaced and ensure that the normalized variance
+           is close to 1. 
+
+6/10/11  Added a scale parameter to qnwgamma and the option to input the mean and variance
+           rather than the shape and scale parameters. The documentation was edited to describe 
+           the changes.
+
+6/9/11* Fixed an error check bug in mdpsolve_Fin_stage.
+
+6/9/11  Fixed the undocumented overwrite feature in add2sparse (still undocumented as it has 
+          not been adequately tested).
+
+6/9/11* Fixed display bug in mdpreport.
+
+6/9/11* Added a workaround version of fprintf to address the fact that MATLAB no longer allows
+          sparse arguments to be passed to fprintf. The workaround version should act just like
+          the builtin function except it tries to convert sparse inputs to full.
+
+6/9/11  Added two plotting utilities to \mdputils: patchplot and drawgrid.
+
+6/9/11* Changed longrunP so the negative elements warning is a simple display and applied the cleanup feature
+          that sets the negative elements to 0 and normalizes so columns sum to 1.
+
+6/8/11  Added documentary comments to longrunP to explain the options.
