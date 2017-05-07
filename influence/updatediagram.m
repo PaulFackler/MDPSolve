@@ -40,7 +40,7 @@
 % For more information, see the Open Source Initiative OSI site:
 %   http://www.opensource.org/licenses/bsd-license.php
 
-function DD=updatediagram(D,fig,print,dname)
+function DD=updatediagram(D,fig,print,dname,typestring)
 if nargin<4
   dname='D';
 end
@@ -139,7 +139,7 @@ if any(any(tril(A)))
   end
 end
 
-% get arc attachement information
+% get arc attachment information
 ha=findall(fig,'Tag','arc');
 na=length(ha);
 DD.attachments=zeros(na,4);
@@ -157,10 +157,18 @@ end
 parents=getparents(DD);
 if print
   if print>1
+    % print dummy variables for CPDs
+    % so code will run even though cpds are not defined
+    for i=1:d      
+      if ~isempty(DD.cpdnames{i})
+        fprintf([DD.cpdnames{i} '=[];\n'])
+      end
+    end
+    k=0;
     fprintf([dname '=[];\n']);
     for i=1:d      
       fprintf([dname '=add2diagram(' dname ',''' DD.names{i} ...
-          ''',''' DD.types{i} ''','])  
+          ''',''' typestring(DD.types{i}) ''','])  
       if DD.obs(i), fprintf('true,{')
       else fprintf('false,{')
       end
@@ -168,30 +176,55 @@ if print
         if j>1, fprintf(','); end
         fprintf(['''' DD.names{parents{i}(j)} ''''])
       end
-      fprintf(['},' DD.cpdnames{i} ');\n'])
+      if isempty(DD.cpdnames{i})
+        fprintf('},[],')
+      else
+        fprintf(['},' DD.cpdnames{i} ','])
+      end
+      fprintf('[%1.4f,%1.4f]',DD.locs(i,1),DD.locs(i,2));
+      
+      if isempty(DD.attachments)
+        fprintf(');\n')
+      else
+        fprintf(',[')
+        ii=find(DD.attachments(:,2)==i);
+        for j=1:length(parents{i})
+          k=find(DD.attachments(ii,1)==parents{i}(j)); 
+          if j==1
+            fprintf('%1i %1i',  DD.attachments(ii(k),3), DD.attachments(ii(k),4))
+          else
+            fprintf(';%1i %1i', DD.attachments(ii(k),3), DD.attachments(ii(k),4))
+          end
+        end
+        fprintf(']);\n')
+      end
     end
   end
-  disp([dname '.locs=[ ...'])
-  for j=1:2
-    for i=1:size(DD.locs,1)
-      if i>1, fprintf(' '); end
-      fprintf('%5.3f',DD.locs(i,j));
+  
+  % location and attachment info now in node line
+  if 0
+    disp([dname '.locs=[ ...'])
+    for j=1:2
+      for i=1:size(DD.locs,1)
+        if i>1, fprintf(' '); end
+        fprintf('%5.3f',DD.locs(i,j));
+      end
+      if j<2, fprintf(';\n')
+      else    fprintf(']'';\n')
+      end
     end
-    if j<2, fprintf(';\n')
-    else    fprintf(']'';\n')
+    if ~isempty(DD.attachments)
+      disp([dname '.attachments=[ ...'])
+      for j=1:4
+        for i=1:size(DD.attachments,1)
+          if i>1, fprintf(' '); end
+          fprintf('%2i',DD.attachments(i,j));
+        end
+        if j<4, fprintf(';\n')
+        else    fprintf(']'';\n')
+        end
+      end
     end
-  end
-  if ~isempty(DD.attachments)
-  disp([dname '.attachments=[ ...'])
-  for j=1:4
-    for i=1:size(DD.attachments,1)
-      if i>1, fprintf(' '); end
-      fprintf('%2i',DD.attachments(i,j));
-    end
-    if j<4, fprintf(';\n')
-    else    fprintf(']'';\n')
-    end
-  end
   end
   
   displayfigoptions
@@ -204,7 +237,7 @@ end
 %   fontsize        : size of label font [0.035] in normalized units
 %   fontname        : a valid font name ['Rockwell'] for all text
 %                       type 'listfonts' for available fonts
-%   backgroundcolor : background color of plot [light gary - [.85 .85 .85]]
+%   backgroundcolor : background color of plot [light gray - [.85 .85 .85]]
 %   nodecolor       : default node color [ light blue - [0 .95 .9]]
 
 figinfo=get(gcf,'UserData');
@@ -218,7 +251,7 @@ fprintf('''fontname'',''')
 fprintf('%1c',figinfo.fontname);
 fprintf(''',...\n')
 fprintf('''backgroundcolor'',[%5.3f %5.3f %5.3f],...\n',figinfo.backgroundcolor);
-fprintf('''nodecolor'',[%5.3f %5.3f %5.3f]);\n',figinfo.nodecolor);
+fprintf('''nodecolor'',[%5.3f %5.3f %5.3f]);\n',figinfo.nodecolor(1,:));
 
 return
 

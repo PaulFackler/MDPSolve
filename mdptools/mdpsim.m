@@ -1,12 +1,12 @@
 % mdpsim Simulation of a controlled Markov process
 % USAGE
-%   [SI,XI,err] = mdpsim(s0,P,Ix,T,colstoch)
+%   [SI,XI,err] = mdpsim(P,s0,T,Ix,colstoch)
 % INPUTS
-%   s0         : k by 1 vector of initial states
 %   P          : ns x nx state transition matrix (or nx x ns if colstoch=0)
+%   s0         : k by 1 vector of initial states
+%   T          : number of simulated time periods
 %   Ix         : ns-vector defining the control - this is an index vector; the ith element
 %                  determines which column of P is associated with the ith state
-%   T          : number of simulated time periods
 %   colstoch   : 0/1 variable - 1 if P is in colstoch form
 % OUTPUTS
 %   SI   : k x T+1 matrix of simulated state indices
@@ -46,9 +46,9 @@
 % For more information, see the Open Source Initiative OSI site:
 %   http://www.opensource.org/licenses/bsd-license.php
 
-function [SI,XI,err] = mdpsim(s0,P,Ix,T,colstoch)
+function [SI,XI,err] = mdpsim(P,s0,T,Ix,colstoch)
 err=0;
-if nargin<3 || isempty(Ix)
+if nargin<4 || isempty(Ix)
   if size(P,1)~=size(P,2)
     error('P must be square if Ix is not defined')
   end
