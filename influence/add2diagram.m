@@ -140,6 +140,7 @@ if ~all(ii)
   error('parents must be added to a diagram before children')
 end
 
+% new comment
 % perform checks on cpd
 if ~isempty(cpd) 
   %rvcheck(cpd,parents)
