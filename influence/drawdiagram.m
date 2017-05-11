@@ -852,9 +852,9 @@ switch type
   otherwise
     switch seltype
       case 'alt'
-      case 'normal'
         figinfo=get(cf,'UserData');
         figinfo.nodeedit([],@closenodebox)
+      case 'normal'
     end
 end
 
