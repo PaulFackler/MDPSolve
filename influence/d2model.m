@@ -66,7 +66,7 @@
 % For more information, see the Open Source Initiative OSI site:
 %   http://www.opensource.org/licenses/bsd-license.php
 
-function [model,svars,xvars]=d2model(D,options)
+function [model,svars,xvars,DD]=d2model(D,options)
 % default option values
 if nargin<2, options=[]; end
 
@@ -92,7 +92,7 @@ end
 
 % no unobserved parameters or states 
 if isempty(us) && isempty(up) %&& 0
-  model=getmodel(D,[],options);
+  [model,DD,cost]=getmodel(D,[],options);
   svars=D.names{os};
   xvars=D.names{[a os]};
   if ~isempty(options)
@@ -127,7 +127,7 @@ z=[z y];
 DD=D;
 parents=getparents(DD);
 if np==0
-  model=getmodel(DD,y,options);
+  [model,DD,cost]=getmodel(DD,y,options);
 else
   options.ptype=1;
   seed=randi(intmax,1,1);
@@ -149,7 +149,7 @@ else
       end
     end
     rng(seed);
-    model=getmodel(DD,y,options);
+    [model,DD,cost]=getmodel(DD,y,options);
     P{i}=model.P;
     R{i}=model.R;
     X=[X;model.X];
