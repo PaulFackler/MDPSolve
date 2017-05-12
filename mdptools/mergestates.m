@@ -6,7 +6,7 @@
 %           {Sj,Pj,Aj,INDj}
 %        Alternatively Cj can be a matrix which is interpreted as
 %           Sj, with Pj, Aj and INDj treated as empty
-%   options : a structure variable with the followind allowed fields:
+%   options : a structure variable with the following allowed fields:
 %               colstoch: 0/1 1 if transition matrices are in colstoch form
 % OUTPUTS
 %   Merged values of S, P, X and Ix
