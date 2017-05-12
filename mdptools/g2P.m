@@ -9,6 +9,9 @@
 %         using S=rectgrid(s);
 %   X : k-row matrix of state/action combinations
 %   e : pxq matrix of random shocks [optional]
+%         An alternative is to pass a q-element cell array of 
+%           rv structures in e and pass w as []. 
+%           g2P will then create a pxq matrix e and p-vector w.
 %   w : p-vector or kxp matrix of probability weights [optional]
 %         Alternative: pass e and w as m-element cell arrays of vectors
 %           which will be combined using disccombine (this assumes that
@@ -90,7 +93,7 @@ else
 end
 if rectinterp==0, geometry=3; end
 % perform checks on e and w
-if nargin>=5
+if nargin>=5 && ~(iscell(e) && isempty(w))
   if any(size(w)==1), w=w(:)'; end
   if size(e,1)~=size(w,2)
     if size(e,1)==size(w,1) && size(w,2)==size(X,1)
@@ -136,8 +139,20 @@ else         % stochastic problem
     if iscell(e) 
       if iscell(w) && length(e)==length(w)
         [e,w]=disccombine(e,w);
+      elseif isempty(w)
+        if isstruct(e{1}) % e contains rv structures
+          de=length(e);
+          w=cell(1,de);
+          for i=1:de
+            w{i}=e{i}.cpt;
+            e{i}=e{i}.values;
+          end
+          [e,w]=disccombine(e,w);
+        else
+          error('cannot determine the nature of e')
+        end
       else
-        error('if e is a cell array w must be a cell array with the same # of elements')
+        error('if e is a cell array of vectors w must be a cell array with the same # of elements')
       end
     end
     nx=size(X,1);
