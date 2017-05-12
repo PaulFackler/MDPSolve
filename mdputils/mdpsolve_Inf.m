@@ -68,6 +68,7 @@ function results = mdpsolve_Inf(R,P,d,ns,nx,Ix,Iexpand,colstoch,EV, ...
     discount1=false;
     tol=tol*(1-max(d))/max(d);
   end
+  ktol=tol;
   % relative value method
   if relval>=1 && policyit
     if colstoch
@@ -109,6 +110,7 @@ function results = mdpsolve_Inf(R,P,d,ns,nx,Ix,Iexpand,colstoch,EV, ...
     end
     EVitsol=getfunc(P,d,colstoch);
     itsol=true;
+    nochangemin=2;
     warning('off','MATLAB:bicgstabl:tooSmallTolerance');
   else
      itsol=false;
@@ -147,15 +149,15 @@ function results = mdpsolve_Inf(R,P,d,ns,nx,Ix,Iexpand,colstoch,EV, ...
         end
         rstar=R(ind); rstar=rstar(:);
         [vnew,ISflag] = ...
-          bicgstabl(@(V) EVitsol(V,ind),rstar,[],[],[],[],v);  % update value
+          bicgstabl(@(V) EVitsol(V,ind),rstar,ktol,[],[],[],v);  % update value
       elseif colstoch 
          [pstar,rstar] = valpol(xnew);
          [vnew,ISflag] = ...
-            bicgstabl(@(V)EVitsol(V,pstar),rstar,[],[],[],[],v);  % update value
+            bicgstabl(@(V)EVitsol(V,pstar),rstar,ktol,[],[],[],v);  % update value
       else
         [pstar,rstar] = valpol(xnew);
         [vnew,ISflag] = ...
-          bicgstabl(@(V)EVitsol(V,pstar),rstar,[],[],[],[],v);  % update value
+          bicgstabl(@(V)EVitsol(V,pstar),rstar,ktol,[],[],[],v);  % update value
       end
       if constrained, vnew(iknown)=vknown; end
     % modified policy iteration
