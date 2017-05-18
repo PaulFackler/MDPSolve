@@ -624,7 +624,6 @@ switch evnt.Key
       figinfo=get(cf,'UserData');
       figinfo.nodeedit(gui.currenthandle,@closenodebox)
       set(gca,'UserData',[]);
-      redraw
     end
   case 'f1'
     helpbox
@@ -1155,7 +1154,6 @@ uicontrol(f,'Style','pushbutton','Units','normalized',...
 data=[{name,type,obs,cpd} data];
 
 
-
 set(f,'UserData',data);
 set(gca,'Visible','off')
 %Make the GUI visible.
@@ -1224,6 +1222,7 @@ switch action
         unselect(data{end})
       end
     end
+    redraw
   case 'cancel'
     close(cf)
 end
