@@ -382,10 +382,10 @@ function deletenode(h)
     deletearc(nodeinfo.outarcs(i))
   end
   delete(nodeinfo.texthandle)
-  delete(h)
   figinfo=get(cf,'UserData');
   figinfo.nodes=figinfo.nodes(figinfo.nodes~=h);
   set(cf,'UserData',figinfo);
+  delete(h)
 
 function h=addarc(pp,pc,attachments)
   cf=gcf;
@@ -434,10 +434,10 @@ function deletearc(h)
     nodeinfo.outarcs=nodeinfo.outarcs(~ismember(nodeinfo.outarcs,h));
     set(hh(i),'UserData',nodeinfo);
   end
-  delete(h);
   figinfo=get(cf,'UserData');
   figinfo.arcs=figinfo.arcs(figinfo.arcs~=h);
   set(cf,'UserData',figinfo);
+  delete(h);
   
 
 % find the attachment points for two graphic objects
