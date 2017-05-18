@@ -360,16 +360,35 @@ y=[ex(2)+ex(4)/2   ex(2)  ex(2)-ex(4)/5  ex(2)        ex(2)+ex(4)/2  ex(2)+ex(4)
 case 4  % diamond
 x=[ex(1)-ex(3)/2  ex(1)            ex(1)+ex(3)/2   ex(1)+ex(3)      ex(1)+1.5*ex(3)  ex(1)+ex(3)     ex(1)+ex(3)/2     ex(1)             ex(1)-ex(3)/2];
 y=[ex(2)+ex(4)/2  ex(2)+ex(4)/12   ex(2)-ex(4)/3   ex(2)+ex(4)/12   ex(2)+ex(4)/2    ex(2)+7/8*ex(4) ex(2)+1.25*ex(4)  ex(2)+7/8*ex(4)   ex(2)+ex(4)/2];
-case 5  % ellispe
-x=linspace(-pi,pi,41);
-y=sin(x)*ex(4)*.65+ex(2)+ex(4)/2;
-x=cos(x)*ex(3)*.5+ex(1)+ex(3)/2;
+case 5  % rectangle with rounded ends
+  q=0.675;  
+  w2 = ex(3)/2;
+  h2 = ex(4)/2;
+  mx = ex(1) + w2;
+  my = ex(2) + h2;
+  w2 = q*w2;
+  h2=1.025*h2;
+  theta=linspace(0,pi/2,5);
+  xx=cos(theta)*h2*0.7;
+  yy=sin(theta)*h2;
+  x=[mx-w2-xx  mx      mx+w2+fliplr(xx) mx+w2+xx(2:end)  mx     mx-w2-fliplr(xx(2:end))];
+  y=[my-yy     my-h2   my-fliplr(yy)    my+yy(2:end)     my+h2  my+fliplr(yy(2:end))];
 case 6  % skewed hexagon
 x=[ex(1)         ex(1)+ex(3)/7 ex(1)+ex(3)*4/7  ex(1)+ex(3) ex(1)+ex(3)   ex(1)+ex(3)*6/7  ex(1)+ex(3)*3/7 ex(1)       ex(1)];
 y=[ex(2)+ex(4)/2 ex(2) ex(2)          ex(2)       ex(2)+ex(4)/2 ex(2)+ex(4)  ex(2)+ex(4)   ex(2)+ex(4) ex(2)+ex(4)/2];
 case 7  % skewed hexagon
 x=[ex(1)         ex(1) ex(1)+ex(3)*3/7  ex(1)+ex(3)*6/7 ex(1)+ex(3)   ex(1)+ex(3)  ex(1)+ex(3)*4/7 ex(1)+ex(3)/7       ex(1)];
 y=[ex(2)+ex(4)/2 ex(2) ex(2)          ex(2)       ex(2)+ex(4)/2 ex(2)+ex(4)  ex(2)+ex(4)   ex(2)+ex(4) ex(2)+ex(4)/2];
+case 8  % ellispe
+% determines the ratio of height to width relative to that of the
+% rectangle the ellipse encloses (smaller eta makes ellipse rounder)
+eta=0.75;          
+theta=atan(eta);
+cx=ex(3)/2/cos(theta);
+cy=ex(4)/2/sin(theta);
+y=linspace(-pi,pi,41);
+x=ex(1)+ex(3)/2 + cos(y)*cx;
+y=ex(2)+ex(4)/2 + sin(y)*cy;
 end
 
 function deletenode(h)
@@ -445,10 +464,12 @@ function deletearc(h)
 function A=getattachmentpoints(h)
 A=[get(h,'XData') get(h,'YData')];
 switch size(A,1)
-  case 41
-    A=A(1:5:41,:); 
   case 9
     A=A(1:1:9,:); 
+  case 20   % rounded ends
+    A=A([1 5 6 7 11 15 16 17],:); 
+  case 41   % ellipse
+    A=A(1:5:41,:); 
 end
 
 % mindist minimum distance between two sets of points
