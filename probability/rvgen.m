@@ -63,39 +63,45 @@ elseif isnumeric(parents)
 end
 % special handling for deterministic functions
 if strcmp(rv.type,'f')
-  if any(cellfun(@(x)any(size(x)~=[n 1]),parents)) 
-    error('parents are not all column n-vectors')
-  else
-    x=rv.valfunc(parents{:});
-  end
+  % the error check really slows down the computation
+  % may want to add a try/catch here to handle errors
+  %if any(cellfun(@(x)any(size(x)~=[n 1]),parents)) 
+  %  error('parents are not all column n-vectors')
+  %end
+  x=rv.valfunc(parents{:});
   z=[];
   return
 end
 
-% determine if the basic random variables are needed and 
+% determine if the basic random variables (z) are needed and 
 %   if that is all that is needed (getx=0)
 if nargin<4, z=[]; end
 getx=true;
-if ischar(z) && strcmp(z,'z')
+% only get the input rvs for use in subsequent calls
+if ischar(z) && strcmp(z,'z')   
   getx=false;
   z=[];
 end
+% get z values
 if isempty(z) 
   switch rv.type
     case {'n','ne'}
-      z=randn(n,1);       
+      z=randn(n,1);  
+    case 'i'
+      z=randi(rv.parameters,n,1);
+      x=z;
+      return
     otherwise
       z=rand(n,1);
   end
-  x=z;
-end
-
-if nargin<3
-  parents={};
+  x=z;  % return z in the first output if getx=false
 end
 
 % get x values
 if getx
+  if nargin<3
+    parents={};
+  end
   switch rv.type
     case 'd'
       x=dgen(rv,parents,z);
@@ -138,6 +144,7 @@ if getx
       fname=[rv.type 'gen'];
       x=feval(fname,n,rv,parents,z);
   end
+  % truncate if rv is bounded
   if isfield(rv,'lb')
     x=max(x,rv.lb);
   end
