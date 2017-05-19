@@ -5,7 +5,8 @@
 %   D     : an influence diagram structure
 %   s0    : initial state values (1 x ns vector or reps x ns matrix)
 %   T     : time horizon
-%   A     : ns x da matrix representing the strategy
+%   A     : ns x da matrix representing the strategy or
+%             a function handle of the form A(S)
 %   pval  : parameter values (if any variables are parameter type an
 %             assumed value must be specified)
 % OUTPUT
@@ -128,14 +129,22 @@ end
 % loop over time periods
 for t=1:T
   if ~isempty(stateind)
-    ind=gridmatch(St(stateind),statevals); % get the index values of the states
+    if isnumeric(A)
+      ind=gridmatch(St(stateind),statevals); % get the index values of the states
+    else
+      At=A([St{stateind}]);
+    end
   end
   for i=1:d
     switch types{i}
     case 's'
       % nothing to do
     case {'a','d'}
-      St{i}=A(ind,match(i));   
+      if isnumeric(A)
+        St{i}=A(ind,match(i));
+      else
+        St{i}=At(:,match(i));
+      end
       Y{i}(:,t)=St{i}; 
     case {'c','u','r','f','h'}
       switch vartypes(i)
