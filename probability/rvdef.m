@@ -81,8 +81,14 @@ switch type
     rv=namedcrv('n',2,[-inf,inf],varargin{:});
   case 'ne'
     rv=namedcrv('ne',2,[-inf,inf],varargin{:});
-  case 'u'
-    rv=namedcrv('u',0,[0,1],varargin{:});
+  case {'u','ug'}
+    if isempty(varargin) || isempty(varargin{1}), varargin{1}=[0;1]; end
+    rv=namedcrv(type,2,[],varargin{:});
+  case 'i'  % integer valued with even weights
+    if length(varargin)~=1
+      error('integer type rvs have only one input');
+    end
+    rv=rvint(varargin{1});
   case 'g'
     rv=namedcrv('g',2,[0,inf],varargin{:});
   case 'b'
@@ -316,6 +322,18 @@ P(1,all(P==0,1))=1;
 matchfunc=@(NN,KK,nn) NN+(KK+nn*(N+1))*(N+1)+1;
 rv=struct('type','d','parameters',params,'values',values,'cpt',P,'size',N+1,'matchfunc',matchfunc);
 
+% integer valued with uniform weights  
+function rv=rvint(parameters) 
+  if length(parameters)==1, parameters=[1;parameters]; end
+  if parameters(2)<parameters(1)
+    error('parameters(2)<parameters(1) for integer rvs is not allowed')
+  end
+  x=(parameters(1):parameters(2))';
+  n=length(x);
+  w=ones(n,1)/n;  
+  rv=struct('type','i','parameters',parameters,'values',x,'cpt',w,'size',n);
+
+
 %%%%%%%%%%%%%%%%% CONTINUOUS RVs
 % named continuous distribution with discretization support
 function rv=namedcrv(type,nparam,lim,varargin)
@@ -354,11 +372,18 @@ function [x,w]=nnw(n,parameters) %#ok<*DEFNU>
 function [x,w]=nenw(n,parameters)
   [x,w]=qnwnormeven(n,0,1);
   x=bsxfun(@plus,x*parameters(2,:),parameters(1,:));
-  
-function [x,w]=unw(n,parameters) %#ok<INUSD>
-  %[x,w]=gausslegendre(n,0,1);
+
+% uniform on [a;b]
+function [x,w]=unw(n,parameters) 
   x=(1:2:2*n-1)'/(2*n);
+  x=parameters(1) + (parameters(2)-parameters(1))*x;
   w=ones(n,1)/n;
+
+% uniform on [a;b] using Gaussian quadrature nodes and weights
+function [x,w]=ugnw(n,parameters) 
+  [x,w]=gausslegendre(n,parameters(1),parameters(2));
+
+  
   
 function [x,w]=gnw(n,parameters)
   if size(parameters,2)>1
