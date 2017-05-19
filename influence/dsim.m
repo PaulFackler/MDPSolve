@@ -56,9 +56,10 @@ function [Y,z]=dsim(D,s0,T,A,pval,z)
 d=length(D.names);
 reps=size(s0,1);
 types=D.types;
-if nargin<6 && any(ismember(types,'p'))
+if nargin<5 && any(ismember(types,'p'))
   error('parameter values must be specified when parameters are included')
 end
+if nargin<6, z=[]; end
 cpds=D.cpds;
 parents=getparents(D);
 Y=cell(1,d);    % storage for all variables & time periods
