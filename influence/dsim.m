@@ -1,16 +1,19 @@
 % dsim Simulates variables in an Influence Diagram
 % USAGE
-%   Y=dsim(D,s0,T,A,pval);
+%   [Y,z]=dsim(D,s0,T,A,pval,z);
 % INPUTS
 %   D     : an influence diagram structure
 %   s0    : initial state values (1 x ns vector or reps x ns matrix)
 %   T     : time horizon
-%   A     : ns x da matrix representing the strategy
+%   A     : ns x da matrix representing the strategy or
+%             a function handle of the form A(S)
 %   pval  : parameter values (if any variables are parameter type an
 %             assumed value must be specified)
+%   z     : cell array of random values from previous call to dsim
 % OUTPUT
 %   Y     : d-element cell array containing reps x T+1 matrices, one
-%            for each of the d variables in the diagram
+%             for each of the d variables in the diagram
+%   z     : cell array of random values to use on subsequent calls to dsim
 % 
 % A(i,j) is the value of action j taken when the current state is state i. 
 % The optimal strategy can be obtained using
@@ -48,18 +51,19 @@
 % For more information, see the Open Source Initiative OSI site:
 %   http://www.opensource.org/licenses/bsd-license.php
 
-function Y=dsim(D,s0,T,A,pval)
+function [Y,z]=dsim(D,s0,T,A,pval,z)
 
 d=length(D.names);
 reps=size(s0,1);
 types=D.types;
-if nargin<6 && any(ismember(types,'p'))
+if nargin<5 && any(ismember(types,'p'))
   error('parameter values must be specified when parameters are included')
 end
+if nargin<6, z=[]; end
 cpds=D.cpds;
 parents=getparents(D);
-Y=cell(1,d);
-St=cell(1,d);
+Y=cell(1,d);    % storage for all variables & time periods
+St=cell(1,d);   % storage for all variables for current time period
 ns=0;
 na=0;
 np=0;
@@ -125,24 +129,43 @@ for i=1:d
   end
 end
 
+% initialize cell array for random terms
+if isempty(z)
+  z=cell(1,d);    % storage for random noise terms for reuse
+  for i=1:d
+    switch types{i}
+    case {'c','u','r','f','h'}
+      z{i}=repmat({[]},1,T);
+    end
+  end
+end
+
 % loop over time periods
 for t=1:T
   if ~isempty(stateind)
-    ind=gridmatch(St(stateind),statevals); % get the index values of the states
+    if isnumeric(A)
+      ind=gridmatch(St(stateind),statevals); % get the index values of the states
+    else
+      At=A([St{stateind}]);
+    end
   end
   for i=1:d
     switch types{i}
     case 's'
       % nothing to do
     case {'a','d'}
-      St{i}=A(ind,match(i));   
+      if isnumeric(A)
+        St{i}=A(ind,match(i));
+      else
+        St{i}=At(:,match(i));
+      end
       Y{i}(:,t)=St{i}; 
     case {'c','u','r','f','h'}
       switch vartypes(i)
       case 1
-        St{i}=rvgen(reps,cpds{i});
+        [St{i},z{i}{t}]=rvgen(reps,cpds{i},[],z{i}{t});
       case 2
-        St{i}=rvgen(reps,cpds{i},St(parents{i}));
+        [St{i},z{i}{t}]=rvgen(reps,cpds{i},St(parents{i}),z{i}{t});
       end
     end
     Y{i}(:,t)=St{i};
