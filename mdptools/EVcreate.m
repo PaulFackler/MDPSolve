@@ -25,7 +25,8 @@
 function [EV,workspace]=EVcreate(p,X,parents,options)
 if nargin==2
   ws=X;
-  if ~isempty(ws.order)
+  % check if v needs to be reordered
+  if ~isempty(ws.order) && any(diff(ws.order)~=1)
     m=length(p);
     n=cellfun(@(x)size(x,1),p);
     p=p(ws.order);
