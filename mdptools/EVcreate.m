@@ -33,11 +33,13 @@ if nargin==2
     vreorder=reshape(1:prod(n),n(m:-1:1));
     vreorder=permute(vreorder,m+1-ws.order(m:-1:1));
     vreorder=vreorder(:);
+  else
+    vreorder = [];
   end
   if exist('tprod','file') 
-    EV=@(varargin) evalEV(p,ws.Ip,ws.Iy,ws.Jp,ws.Jy,vreorder,1,varargin{:}); 
+    EV=@(varargin) EVeval(p,ws.Ip,ws.Iy,ws.Jp,ws.Jy,vreorder,1,varargin{:}); 
   else 
-    EV=@(varargin) evalEVb(p,ws.Ip,ws.Iy,ws.Jp,ws.Jy,vreorder,1,varargin{:}); 
+    EV=@(varargin) EVevalb(p,ws.Ip,ws.Iy,ws.Jp,ws.Jy,vreorder,1,varargin{:}); 
   end
 else
   m=length(p);
@@ -104,7 +106,7 @@ else
   end
   clear X Xin Xout Xcombined parentsin parentsout parentscombined i m
   if exist('tprod','file') && ~usebsxfun
-    EV=@(varargin) evalEV(p,Ip,Iy,Jp,Jy,vreorder,useI,varargin{:}); 
+    EV=@(varargin) EVeval(p,Ip,Iy,Jp,Jy,vreorder,useI,varargin{:}); 
   else 
     EV=@(varargin) evalEVb(p,Ip,Iy,Jp,Jy,vreorder,useI,varargin{:}); 
   end
@@ -119,8 +121,65 @@ else
 end
 
 
+% EVeval Evaluates an EV function using EVmergefunc
+% USAGE
+%   y=EVeval(p,Ip,Iy,Jp,Jy,vreorder,useI,v,Ie);
+% INPUTS
+%   p  : 1 x m cell array of conditional probability matrices
+%                ith element has n(i) rows
+%   Ip : 1 x m cell array of expansion indices for the p inputs
+%   Iy : 1 x m cell array of expansion indices for the output at each stage
+%   Jp : 1 x m cell array of expansion indices at each stage relative to X
+%   vreorder : index vector to rearrange v (empty implied no rearrangement)
+%   useI     : 0 to force J indexing at the first iteration
+%   v        : prod(n)-vector
+%   Ie       : index of extraction values relative to X - used to evaluate 
+%                the expected value conditioned on selected values of X
+% OUTPUT
+%   y  : E[v]
+
 % Note: empty index vector avoid unnecessary indexing
-function y=evalEVt(p,Ip,Iy,Jp,Jy,vreorder,useI,v,Ie)
+function y=EVeval(p,Ip,Iy,Jp,Jy,vreorder,useI,v,Ie)
+if nargin>8, extract=true; nIe=length(Ie); else extract=false; end
+if ~isempty(vreorder), v=v(vreorder); end
+m=length(p);
+ni=size(p{1},1);
+if ~extract || (useI && nIe>=size(p{1},2))
+  y = reshape(v,length(v)/ni,ni) * p{1}; 
+else
+  if isempty(Jp{1}),   pind=uint64(Ie);
+  else                 pind=Jp{1}(Ie);
+  end
+  y = reshape(v,numel(v)/ni,ni) * p{1}(:,pind);
+  %disp('Using J indexing starting in iteration 1')
+  %   the following line seems like it should be faster than the one above
+  %   but indexing is slow and expanding columns of y, which is 
+  %   generally much bigger than p{1}, slows down this operation
+  %y = reshape(v,length(v)/ni,ni) * p{1}; y = y(:,Jp{1}(Ie));
+  useI=false;
+end
+for i=2:m
+  % determine if switchover to J indexing should occur (if it hasn't already)
+  if extract && useI && (nIe<=max(length(Iy{i}),size(y,3)) || i==m)
+    %disp(['Using J indexing starting in iteration ' num2str(i)])
+    useI=false;
+  end
+  if useI
+    y=EVmergefunc(y,Iy{i},p{i},Ip{i});
+  else
+    if isempty(Jy{i}),   yind=uint64(Ie);
+    else                 yind=Jy{i}(Ie);
+    end
+    if isempty(Jp{i}),   pind=uint64(Ie);
+    else                 pind=Jp{i}(Ie);
+    end
+    y=EVmergefunc(y,yind,p{i},pind);
+  end
+end
+y=y(:);
+
+% Evaluates an EV function using tprod
+function y=EVevalt(p,Ip,Iy,Jp,Jy,vreorder,useI,v,Ie)
 if nargin>8, extract=true; nIe=length(Ie); else extract=false; end
 if ~isempty(vreorder), v=v(vreorder); end
 m=length(p);
@@ -160,63 +219,7 @@ for i=2:m
 end
 y=y(:);
 
-
-% EVevalt Evaluates an EV function using tprod
-% USAGE
-%   y=EVevalt(p,Ip,Iy,Jp,Jy,vreorder,useI,v,Ie);
-% INPUTS
-%   p  : 1 x m cell array of conditional probability matrices
-%                ith element has n(i) rows
-%   Ip : 1 x m cell array of expansion indices for the p inputs
-%   Iy : 1 x m cell array of expansion indices for the output at each stage
-%   Jp : 1 x m cell array of expansion indices at each stage relative to X
-%   vreorder : index vector to rearrange v (empty implied no rearrangement)
-%   useI     : 0 to force J indexing at the first iteration
-%   v        : prod(n)-vector
-%   Ie       : index of extraction values relative to X - used to evaluate 
-%                the expected value conditioned on selected values of X
-% OUTPUT
-%   y  : E[v]
-
-% Note: empty index vector avoid unnecessary indexing
-function y=evalEV(p,Ip,Iy,Jp,Jy,vreorder,useI,v,Ie)
-if nargin>8, extract=true; nIe=length(Ie); else extract=false; end
-if ~isempty(vreorder), v=v(vreorder); end
-m=length(p);
-ni=size(p{1},1);
-if ~extract || (useI && nIe>=size(p{1},2))
-  y = reshape(v,length(v)/ni,ni) * p{1}; 
-else
-  y = reshape(v,numel(v)/ni,ni) * p{1}(:,Jp{1}(Ie));
-  %disp('Using J indexing starting in iteration 1')
-  %   the following line seems like it should be faster than the one above
-  %   but indexing is slow and expanding columns of y, which is 
-  %   generally much bigger than p{1}, slows down this operation
-  %y = reshape(v,length(v)/ni,ni) * p{1}; y = y(:,Jp{1}(Ie));
-  useI=false;
-end
-for i=2:m
-  % determine if switchover to J indexing should occur (if it hasn't already)
-  if extract && useI && (nIe<=max(length(Iy{i}),size(y,3)) || i==m)
-    %disp(['Using J indexing starting in iteration ' num2str(i)])
-    useI=false;
-  end
-  if useI
-    y=EVmergefunc(y,Iy{i},p{i},Ip{i});
-  else
-    if isempty(Jy{i}),   yind=uint64(Ie);
-    else                 yind=Jy{i}(Ie);
-    end
-    if isempty(Jp{i}),   pind=uint64(Ie);
-    else                 pind=Jp{i}(Ie);
-    end
-    y=EVmergefunc(y,yind,p{i},pind);
-  end
-end
-y=y(:);
-
-
-function y=evalEVb(p,Ip,Iy,Jp,Jy,vreorder,useI,v,Ie)
+function y=EVevalb(p,Ip,Iy,Jp,Jy,vreorder,useI,v,Ie)
 if nargin>8, extract=true; nIe=length(Ie); else extract=false; end
 if ~isempty(vreorder), v=v(vreorder); end
 m=length(p);
