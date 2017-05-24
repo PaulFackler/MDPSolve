@@ -1,11 +1,11 @@
 % Transition functions for Anderson's duck harvesting model
 % USAGE
-%   Splus=Anderson75tran(Nn,Pn,Dn,Rn,additive);
+%   Splus=Anderson75tran(Nn,Pn,Dn,Hn,additive);
 % INPUTS
 %   Nn : population size (state 1)
 %   Pn : pond numbers    (state 2)
 %   Dn : harvest size in birds (action)
-%   Rn : rain random variable
+%   Hn : harvest random variable
 %   additive : 0/1  (0) compensatory model (1) additive model
 % OUTPUTS
 %   Splus: 2-column matrix of values of next period's state: [N+ P+]

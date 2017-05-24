@@ -40,7 +40,7 @@
 %   nodeedgewidth   : width of the line defining the nodes [1]
 %   arcflag         : 0 arcs are connected at closest points
 %                     1 arcs go from rightmost point to leftmost point 
-%                     2 arcs go from bottom point to top point [0]
+%                     2 arcs go from bottom point to top point [1]
 %   arcwidth        : width of the arcs [2]
 %   archeadsize     : size of arc arrow heads [1]
 %   confirmationboxes : if true user must confirm certain choices [false]
@@ -138,7 +138,7 @@ figinfo.addnumbers=false;
 figinfo.backgroundcolor=[.85 .85 .85];
 figinfo.obsfactor = 0.15;
 figinfo.nodeedgewidth=1;
-figinfo.arcflag=0;
+figinfo.arcflag=1;
 figinfo.arcwidth=2;
 figinfo.archeadsize=0.75;
 figinfo.boxsize=1;
@@ -319,12 +319,12 @@ function h2=addnode(loc,name,type,obs,cpd,h2)
       'FontUnits','normalized','FontSize',figinfo.fontsize,...
       'FontName',figinfo.fontname,...
       'LineWidth',figinfo.nodeedgewidth,...
+      'ButtonDownFcn',@mouseclick,...
       'Units','normalized','margin',1);
   %set(h1,'Units','pixels'); set(h1,'Units','data');
   ex=get(h1,'extent');
   if length(name)<3, ex(1)=ex(1)-ex(3)/2; ex(3)=ex(3)*2; end
   ex=ex+[-0.15*ex(3) -0.15*ex(4) 0.3*ex(3) 0.3*ex(4)];
-  set(h1,'ButtonDownFcn',@mouseclick);
   [x,y]=getshape(ex,figinfo.shapes(type));
   if nargin<6 || isempty(h2)
     h2=patch(x,y,nodecolor);
@@ -336,6 +336,15 @@ function h2=addnode(loc,name,type,obs,cpd,h2)
     delete(nodeinfo.texthandle);
     set(h2,'XData',x,'Ydata',y,'FaceColor',nodecolor);
   end
+  delete(h1)
+  h1 = text(loc(1),loc(2),name);
+  set(h1,'BackgroundColor',nodecolor,...
+      'HorizontalAlignment','center','VerticalAlignment','middle',...
+      'FontUnits','normalized','FontSize',figinfo.fontsize,...
+      'FontName',figinfo.fontname,...
+      'LineWidth',figinfo.nodeedgewidth,...
+      'ButtonDownFcn',@mouseclick,...
+      'Units','normalized','margin',1);
   %if ~isempty(cpd) && cpd==2, set(h2,'LineWidth',figinfo.nodeedgewidth*2); end
   nodeinfo.texthandle=h1;
   nodeinfo.type=type;
@@ -427,7 +436,11 @@ function h=addarc(pp,pc,attachments)
   end
   loc1=max(0,loc1);
   loc2=max(0,loc2);
+  %drawArrow = @(x,y) quiver( x(1),y(1),x(2)-x(1),y(2)-y(1),1,'k','linewidth',2) ;  
   h=annotation('arrow',[loc1(1) loc2(1)],[loc1(2) loc2(2)]);
+  %hold on
+  %h=drawArrow([loc1(1) loc2(1)],[loc1(2) loc2(2)]);
+  %hold off
   set(h,'headwidth', get(h,'headwidth')*figinfo.archeadsize,...
         'headlength',get(h,'headlength')*figinfo.archeadsize,...
         'linewidth',figinfo.arcwidth)
@@ -897,7 +910,6 @@ function startmovenode(src)
   % find the associated text box
   uistack(src,'top')
   uistack(nodedata.texthandle,'top')
-  %uistack(nodedata.texthandle,'bottom')
   %uistack(src,'bottom')
   gui.texthandle=nodedata.texthandle;
   %gui.corners=getattachmentpoints(src);
@@ -908,11 +920,13 @@ function startmovenode(src)
   gui.inlocs=zeros(length(nodedata.inarcs),4);
   for i=1:length(nodedata.inarcs)
     gui.inlocs(i,:)=[get(gui.inarcs(i),'X') get(gui.inarcs(i),'Y')];
+    %gui.inlocs(i,1:2)=[get(gui.inarcs(i),'XData') get(gui.inarcs(i),'YData')];
   end
   gui.outarcs=nodedata.outarcs;
   gui.outlocs=zeros(length(nodedata.outarcs),4);
   for i=1:length(gui.outarcs)
     gui.outlocs(i,:)=[get(gui.outarcs(i),'X') get(gui.outarcs(i),'Y')];
+    %gui.outlocs(i,1:2)=[get(gui.outarcs(i),'XData') get(gui.outarcs(i),'YData')];
   end
   thisfig = gcbf();
   set(thisfig,'WindowButtonMotionFcn',@movenode);

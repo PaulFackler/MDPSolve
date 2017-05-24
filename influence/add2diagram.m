@@ -1,6 +1,6 @@
 % add2diagram Adds a variable to an influence diagram
 % USAGE
-%   D=add2diagram(D,name,type,obs,parents,cpd);
+%   D=add2diagram(D,name,type,obs,parents,cpd,loc,attachments);
 % INPUTS
 %   D           : an existing influence diagram structure 
 %                  (empty if creating a new diagram)
@@ -53,11 +53,11 @@
 % For more information, see the Open Source Initiative OSI site:
 %   http://www.opensource.org/licenses/bsd-license.php
 
-function D=add2diagram(D,name,type,obs,parents,cpd,locs,attachments)
+function D=add2diagram(D,name,type,obs,parents,cpd,loc,attachments)
 if nargin<8
   attachments=[];
 if nargin<7
-  locs=[];
+  loc=[];
 if nargin<6
   cpd=[];
 if nargin<5
@@ -95,7 +95,7 @@ if isempty(D)
     D.cpdnames={[]};
   end
   D.values={};
-  D.locs=locs;
+  D.locs=loc;
   D.attachments=zeros(0,4);
 else
   n=length(D.names)+1;
@@ -115,7 +115,7 @@ else
   else
     D.cpdnames{n}=[];
   end
-  D.locs=[D.locs;locs];
+  D.locs=[D.locs;loc];
   [check,pnum]=ismember(parents,D.names);
   if ~isempty(pnum)
     if isempty(attachments)% use default values 5 & 1  

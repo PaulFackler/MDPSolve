@@ -117,7 +117,7 @@ D.attachments=[ ...
 figure(1); clf; set(gcf,'units','pixels','position',[680  450  1200 500]); drawdiagram(D)
 
 %%
-discretize=0; % 0 for simulation method
+discretize=1; % 0 for simulation method
 
 if discretize
   t=cputime;
