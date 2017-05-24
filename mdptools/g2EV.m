@@ -128,7 +128,7 @@ for i=1:ds
     Xi=X(Is{i},xlist{i});
   end
   nx=size(Xi,1);
-  wi=prod(rectgrid(e{elist{i}}),2);
+  wi=prod(rectgrid(w{elist{i}}),2);
   nw=length(wi);
   Xi=mat2cell(Xi,size(Xi,1),ones(1,size(Xi,2)));
   Xei=cell(1,length(xelist{i}));
