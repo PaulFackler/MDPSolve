@@ -4,7 +4,7 @@
 % INPUTS
 %   X       : matrix of state/action combinations
 %   parents : m-element cell array of conditioning variables (parents)
-%   options : structur variable, felds listed below
+%   options : structure variable, fields listed below
 % OUTPUTS
 %   Is        : m-element cell array of index vectors to define CPTs
 %                 values in columns of ith CPT are X(Is{i},parents{i})
