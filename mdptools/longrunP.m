@@ -1,10 +1,14 @@
 % longrunP Analyzes Markov transition probability matrices
 % USAGE
 %   [q,F]=longrunP(p,options);
+% or
+%   q=longrunP(pf,ns);
 % INPUT
 %   P :  ns x ns Markov transition probability matrix
 %        (non-negative matrix with unit column sums)
 %   options : a structure variable defining options governing the procedure
+%   pf : a function handle that returns P*q
+%   ns : the number of rows/columns in P
 % OUTPUTS
 %    q : ns x k matrix of invariant distributions 
 %          for each recurrence class
@@ -63,10 +67,16 @@
 
 function [q,f]=longrunP(p,options)
 if nargin<2, options=[]; end
+if isa(p,'function_handle')
+  q=longrunPf(p,options);
+  f=[];
+  return
+end
 getopts(options, ...
  'tol',   5e-15,...     % tolerance to check if probabilities sum to 1
  'fast',  1);           % use fast method
 n=size(p,1);
+
 
 % Error Checking to ensure P is a valid stochastic matrix
 if size(p,2)~=n
@@ -208,4 +218,40 @@ function res=getres(p)
   res(1)=sum(p);
 end
 
+
+
+end
+
+% longrunPf Analyzes Markov transition probability matrices
+% USAGE
+%   q=longrunPf(p,options);
+% INPUT
+%   p       : a function handle mappng R^n to R^n; p(x)=P*x
+%               where P is a transition probability matrix
+%   options : a structure variable defining options governing the procedure
+% OUTPUTS
+%   q : n x 1 vector containing the invariant distribution of the process
+%        (assumes this exists and is unique)
+%        q(i)=long-run frequency of visits to state i
+function plr=longrunPf(p,options)
+if isnumeric(options)
+  n=options;
+  maxit=1000;
+  tol=1e-12;
+else
+end
+p0=ones(n,1)/n;
+plr=p(p0);
+if abs(sum(plr)-1)>1e-14
+  error('transition probability function incorrectly specified') 
+end
+for i=1:maxit
+  p0=plr;
+  plr=p(plr);
+  r=norm(p0-plr);
+  if r<tol, break; end
+end
+if i>=maxit
+  fprintf('failure to converge in longrunPf: residual = %1.4e\n',r)
+end
 end
