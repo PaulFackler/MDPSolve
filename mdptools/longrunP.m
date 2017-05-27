@@ -4,11 +4,12 @@
 % or
 %   q=longrunP(pf,ns);
 % INPUT
-%   P :  ns x ns Markov transition probability matrix
-%        (non-negative matrix with unit column sums)
+%   P       :  ns x ns Markov transition probability matrix
+%               (non-negative matrix with unit column sums)
 %   options : a structure variable defining options governing the procedure
-%   pf : a function handle that returns P*q
-%   ns : the number of rows/columns in P
+%   pf      : a function handle that returns P*q (must accept a ns-vector that 
+%               sums to 1 and return an ns-vector that sums to 1)
+%   ns      : the number of rows/columns in P
 % OUTPUTS
 %    q : ns x k matrix of invariant distributions 
 %          for each recurrence class
