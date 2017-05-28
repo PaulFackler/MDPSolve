@@ -80,6 +80,8 @@
 function [P,warnings]=g2P(g,s,X,e,w,options)
 warnings={};
 if nargin<6, options=0; end
+if nargin<5, w=[]; end
+if isstruct(w); options=w; end
 geometry=0;
 if isnumeric(options)
   cleanup=options;
@@ -92,8 +94,9 @@ else
          'expande', false  ); 
 end
 if rectinterp==0, geometry=3; end
+if isstruct(e), e={e}; end
 % perform checks on e and w
-if nargin>=5 && ~(iscell(e) && isempty(w))
+if exist('e','var') && exist('w','var') && ~(iscell(e) && isempty(w))
   if any(size(w)==1), w=w(:)'; end
   if size(e,1)~=size(w,2)
     if size(e,1)==size(w,1) && size(w,2)==size(X,1)
@@ -132,7 +135,7 @@ if isstruct(s)
   end
 end
 
-if nargin<5 || isempty(e)   % deterministic problem
+if nargin<4 || isempty(e)   % deterministic problem
   P = getPk(feval(g,X),s,geometry,cleanup);
 else         % stochastic problem
   try
