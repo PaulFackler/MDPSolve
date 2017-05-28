@@ -128,8 +128,12 @@ for i=1:ds
     Xi=X(Is{i},xlist{i});
   end
   nx=size(Xi,1);
-  wi=prod(rectgrid(w{elist{i}}),2);
-  nw=length(wi);
+  if isempty(elist{i})
+    wi=1; nw=1;
+  else
+    wi=prod(rectgrid(w{elist{i}}),2);
+    nw=length(wi);
+  end
   Xi=mat2cell(Xi,size(Xi,1),ones(1,size(Xi,2)));
   Xei=cell(1,length(xelist{i}));
   try % expand X and e together
@@ -186,7 +190,7 @@ function Pk=getPk(gval,s,geometry,cleanup)
   
 function x=inputcheck(x,xname,class)
 if ~iscell(x)
-  if isa(x,'class')
+  if isa(x,class)
     x={x};
   else
     error([xname ' must be a single element or a cell array of elements of class ' class])
