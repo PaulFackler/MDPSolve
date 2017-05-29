@@ -168,8 +168,12 @@ for i=2:m
   if useI
     y=EVmergefunc(y,Iy{i},p{i},Ip{i});
   else
-    if isempty(Jy{i}),   yind=uint64(Ie);
-    else                 yind=Jy{i}(Ie);
+    if isempty(Jy{i})
+      % check if selection has already been applied in a previous step  
+      if i>1 && isempty(Jy{i-1}), yind=[];
+      else                        yind=uint64(Ie);
+      end
+    else                          yind=Jy{i}(Ie);
     end
     if isempty(Jp{i}),   pind=uint64(Ie);
     else                 pind=Jp{i}(Ie);
