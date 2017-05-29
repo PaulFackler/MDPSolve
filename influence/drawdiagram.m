@@ -147,9 +147,9 @@ figinfo.undirected=false;
 figinfo.dag=true;
 figinfo.generic = false;
 figinfo.nodeedit = @getnewvariable;
-figinfo.typestring='sadfurcp';    % valid letters to designate types
-figinfo.types=[1 2 2 3 4 4 5 6];  % mapping from letter types to type #
-figinfo.shapes=[2 1 2 4 5 3];     % mapping from type # to shape #
+figinfo.typestring='sadfurcpq';    % valid letters to designate types
+figinfo.types=[1 2 2 3 4 4 5 6 7];  % mapping from letter types to type #
+figinfo.shapes=[2 1 2 4 5 3 6];     % mapping from type # to shape #
 if nargin>=2 && ~isempty(options)
   if isfield(options,'figpos'),            figinfo.figpos=options.figpos;                       end
   if isfield(options,'name'),              figinfo.name=options.name;                           end
@@ -1119,6 +1119,7 @@ if data{1}(1)>0.5, pos(1)=pos(1)-pos(3); end
 if data{1}(2)>0.5, pos(2)=pos(2)-pos(4); end
 % Create and then hide the GUI as it is being constructed.
 f = figure('Visible','off');
+%f=figure;
 set(f,'Units','normalized','OuterPosition',pos,...
     'NumberTitle','off',...
     'Toolbar','none','MenuBar','none','Color',[0.85 0.85 0.85],...
@@ -1142,19 +1143,21 @@ uname = uicontrol('Parent',f,'Style','edit','Units','normalized',...
 
 hbt=uibuttongroup('Parent',f,'FontSize',10,'Title','Variable type',...
   'Position',[.05 .2 .4 .625],'BackgroundColor',backgroundcolor,'SelectionChangeFcn',@changestyle);
-ht=zeros(6,1);
+ht=zeros(7,1);
 ht(1)=uicontrol(hbt,'Style','radiobutton','Units','normalized',...
-  'String','state (s)',       'Value',0,'Position',[.05 11/13 .8 .12],'BackgroundColor',backgroundcolor);
+  'String','state (s)',       'Value',0,'Position',[.05 13/15 .8 .12],'BackgroundColor',backgroundcolor);
 ht(2)=uicontrol(hbt,'Style','radiobutton','Units','normalized',...
-  'String','action (a,d)',    'Value',0,'Position',[.05 9/13 .8 .12],'BackgroundColor',backgroundcolor);
+  'String','action (a,d)',    'Value',0,'Position',[.05 11/15 .8 .12],'BackgroundColor',backgroundcolor);
 ht(3)=uicontrol(hbt,'Style','radiobutton','Units','normalized',...
-  'String','future state (f)','Value',0,'Position',[.05 7/13 .8 .12],'BackgroundColor',backgroundcolor);
+  'String','future state (f)','Value',0,'Position',[.05 9/15 .8 .12],'BackgroundColor',backgroundcolor);
 ht(4)=uicontrol(hbt,'Style','radiobutton','Units','normalized',...
-  'String','utility (u,r)',   'Value',0,'Position',[.05 5/13 .8 .12],'BackgroundColor',backgroundcolor);
+  'String','utility (u,r)',   'Value',0,'Position',[.05 7/15 .8 .12],'BackgroundColor',backgroundcolor);
 ht(5)=uicontrol(hbt,'Style','radiobutton','Units','normalized',...
-  'String','chance (c)',      'Value',0,'Position',[.05 3/13 .8 .12],'BackgroundColor',backgroundcolor);
+  'String','chance (c)',      'Value',0,'Position',[.05 5/15 .8 .12],'BackgroundColor',backgroundcolor);
 ht(6)=uicontrol(hbt,'Style','radiobutton','Units','normalized',...
-  'String','parameter (p)',   'Value',0,'Position',[.05 1/13 .8 .12],'BackgroundColor',backgroundcolor);
+  'String','parameter (p)',   'Value',0,'Position',[.05 3/15 .8 .12],'BackgroundColor',backgroundcolor);
+ht(7)=uicontrol(hbt,'Style','radiobutton','Units','normalized',...
+  'String','feasibility (q)', 'Value',0,'Position',[.05 1/15 .8 .12],'BackgroundColor',backgroundcolor);
 set(hbt,'SelectedObject',ht(type));
  
 
@@ -1192,7 +1195,7 @@ data=[{name,type,obs,cpd} data];
 set(f,'UserData',data);
 set(gca,'Visible','off')
 %Make the GUI visible.
-drawnow
+%drawnow
 set(f,'Visible','on')
 drawnow
 uicontrol(uname)
@@ -1214,7 +1217,7 @@ function changestyle(src,evnt)
 cf=gcf;
 data=get(cf,'UserData');
 % variable type
-data{2}=7-find(ismember(get(src,'Children'), get(src,'SelectedObject')));
+data{2}=8-find(ismember(get(src,'Children'), get(src,'SelectedObject')));
 set(cf,'UserData',data);
 
 function changeobs(src,evnt)
