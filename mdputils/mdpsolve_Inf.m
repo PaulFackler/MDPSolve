@@ -279,7 +279,7 @@ function [vnew,xnew] = valmax(v)
     vnew=P(v);
     vnew=vnew(:);
   else
-    if colstoch, vnew=(v'*P)';
+    if colstoch, vnew=P'*v;
     else         vnew=P*v;
     end
     if expandP,  vnew=vnew(Iexpand);  end
