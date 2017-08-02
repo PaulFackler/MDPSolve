@@ -93,7 +93,7 @@ for k=1:ny
     Bplus(omega==0,:)=0;
   end
   temp=simplexbas(Bplus,nu,inc,1,0);
-  temp=mxv(temp,omega,1);
+  temp=mxv(temp,omega,0);
   clear omega
   Pb=Pb+temp;
   clear temp

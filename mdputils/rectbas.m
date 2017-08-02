@@ -106,6 +106,6 @@ if cleanup==1
     vv=vv(ind);
     B=sparse(ii,jj,vv,size(B,1),size(B,2));
   end
-  B=mxv(B,1./sum(B,1),1);
+  B=mxv(B,1./sum(B,1),0);
   %B=bsxfun(@rdivide,B,sum(B,1));
 end
