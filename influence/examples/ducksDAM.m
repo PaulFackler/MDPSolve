@@ -80,9 +80,9 @@ AD=(Dmin:Dinc:Dmax)';    % population in millions
 HI=(1:4)';               % harvest intensity
 
 % quadrature is used with the following number of nodes
-nk=21; % number of harvest noise values
-nn=21; % number of population noise values
-np=21; % number of rain values 
+nk=5; % number of harvest noise values
+nn=5; % number of population noise values
+np=5; % number of rain values 
 
 % use RV structures for the noise terms
 HP =rvdef('n',[0;1]         ,nk); % harvest survival noise
@@ -113,10 +113,10 @@ D.attachments=[ ...
  4  5  5  4  4  4  5  5  6  5  4  5  4  5  6  6  4;
  1  1  1  8  1  8  1  1  2  1  8  1  8  1  2  1  1]';
 
-figure(1); clf; set(gcf,'units','pixels','position',[680  450  1200 500]); drawdiagram(D)
+figure(1); clf; set(gcf,'units','pixels','position',[100  100  1200 500]); drawdiagram(D)
 %%
 t=cputime;
-options=struct('inc',5,'ptype',1,'orderalg',1,'cleanup',0,'reps',1000,'print',0);
+options=struct('inc',5,'ptype',1,'orderalg',1,'cleanup',0,'reps',100,'print',0);
 model=d2model(D,options);
 fprintf('time taken to set up model: %6.3f\n',cputime-t)
 
