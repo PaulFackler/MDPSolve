@@ -30,7 +30,7 @@
  v=results.v; x=results.Ixopt; pstar=results.pstar;
 
  T=25;
- St=mdpsim((1:3)',P,x,T,true);
+ St=mdpsim(P,(1:3)',T,x,true);
 
  figure(1); clf
  h=plot(0:T,St,'.-');
@@ -41,7 +41,7 @@
  set(gca,'ytick',(1:3));
 
  T=5000;
- St=mdpsim((1:3)',P,x,T,true);
+ St=mdpsim(P,(1:3)',T,x,true);
  pp=zeros(3,1);
  for i=1:3
    pp(i)=sum(St(:)==i);
