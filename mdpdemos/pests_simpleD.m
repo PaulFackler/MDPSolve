@@ -20,10 +20,10 @@
  S=[1;2;3];
  A=[0;1];
  
- D=add2diagram([],'pest level', 's',S, {},[],[],[.3 .6]);
- D=add2diagram(D, 'treat',      'a',A, {},[],[],[.3 .4]);
- D=add2diagram(D, 'pest level+','f',S, {'treat','pest level'},[P1 P2],[],[.8 .6]);
- D=add2diagram(D, 'utility',    'r',[],{'treat','pest level'},reward,[],[.6 .4]);
+ D=add2diagram([],'pest level', 's',1,S, {},[],[.3 .6]);
+ D=add2diagram(D, 'treat',      'a',1,A, {},[],[.3 .4]);
+ D=add2diagram(D, 'pest level+','f',1,S, {'treat','pest level'},[P1 P2],[.8 .6]);
+ D=add2diagram(D, 'utility',    'r',1,[],{'treat','pest level'},reward,[.6 .4]);
  
  figure(1); clf
  drawdiagram(D)
