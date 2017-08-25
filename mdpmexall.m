@@ -24,7 +24,8 @@ processdir
 cd(currentdir)
 
 function mdpdir=stripdir(mdpdir)
-while mdpdir(end)~='\' && mdpdir(end)~='/', mdpdir(end)=[];end
+while mdpdir(end)~='\' && mdpdir(end)~='/', mdpdir(end)=[]; end
+
 
 function processdir
 currentdir=cd;
@@ -34,13 +35,29 @@ for i=3:length(fn)
     if ~strcmp(fn(i).name(1),'@') && ...
       ~strcmp(fn(i).name,'kdtree') && ...
       ~strcmp(fn(i).name,'tprod')
-      cd(['.\' fn(i).name])
+      if(isunix)
+          cd(['./' fn(i).name])
+      else
+           cd(['.\' fn(i).name])
+      end
       processdir
       cd(currentdir)
     end
   elseif strcmp(fn(i).name(end-1:end),'.c')
     % mex all C files in the mdputils subdirectory
-    eval(['mex -largeArrayDims ' fn(i).name])
+    for ii=1:10
+      try
+        eval(['mex -largeArrayDims -lmwblas ' fn(i).name])
+        break
+      catch errobj
+        if strfind(errobj.message,...
+         'mt : general error c101008d: Failed to write the updated manifest to the resource of file')>0
+        else
+          rethrow(errobj);
+        end
+      end
+    end
+    if ii>=10, disp(['Manifest file not written of ' fn(i).name]); end
     disp(['mex file created for ' cd '\' fn(i).name])
   end
 end
