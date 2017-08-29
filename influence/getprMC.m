@@ -143,9 +143,9 @@ for i=1:length(s)
   end
 end
 
-memstats=memory;
 forcesparse=true;
-if forcesparse || memstats.MaxPossibleArrayBytes<ns*nx*8
+if ispc, memstats=memory; if memstats.MaxPossibleArrayBytes > ns*nx*8, forcesparce=true; end
+if forcesparse
   P=sparse(ns,nx);
 else
   P=zeros(ns,nx);
