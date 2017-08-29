@@ -94,7 +94,7 @@ else
          'expande', false  ); 
 end
 if rectinterp==0, geometry=3; end
-if isstruct(e), e={e}; end
+if nargin>3 && isstruct(e), e={e}; end
 % perform checks on e and w
 if exist('e','var') && exist('w','var') && ~(iscell(e) && isempty(w))
   if any(size(w)==1), w=w(:)'; end
