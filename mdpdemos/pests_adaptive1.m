@@ -158,7 +158,7 @@ D.locs=[ ...
 0.205 0.205 0.309 0.612 0.590;
 0.718 0.551 0.383 0.718 0.478]';
 
-doptions=struct('inc',p,'d',delta,'reps',10000);
+doptions=struct('inc',p,'d',delta,'reps',0000);
 modelD=d2model(D,doptions);
 
 [resultsD]=mdpsolve(modelD,options);

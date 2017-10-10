@@ -61,14 +61,29 @@ else
       error('ind must be the same size and u')
     end
   end
-  try
-    error(' ')
-    if isempty(ind)
-      x=randdiscc(p,u,1:q);
+  if size(p,1)==2  % separate method to handle binary rvs
+    if nargin<3
+      x=1+double(u>p(1,:)');
     else
-      x=randdiscc(p,u,ind);
+      x=1+double(u>p(1,ind)');
     end
-  catch
+    return
+  end
+  %p=cumsum(p,1); p=[zeros(1,size(p,2));p(1:end-1,:)]; 
+  %if nargin<3
+  %  x=sum(bsxfun(@ge,u(:)',p),1)';
+  %else
+  %  x=sum(bsxfun(@ge,u(:)',p(:,ind)),1)';
+  %end
+  %return
+  %try
+  %  error(' ')
+  %  if isempty(ind)
+  %    x=randdiscc(p,u,1:q);
+  %  else
+  %    x=randdiscc(p,u,ind);
+  %  end
+  %catch
     m=size(p,1);
     x=zeros(size(u));
     for j=1:q
@@ -86,5 +101,5 @@ else
       end
       x(j)=i;
     end
-  end
+  %end
 end
