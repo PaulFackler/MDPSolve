@@ -17,11 +17,17 @@
 %
 % Options fields:
 %   order     : m-vector if alternative order of operation
-%   usebsxfun : forces the use of bsxfun rather than tprod
+%   usebsxfun : forces the use of bsxfun rather than EVmergefunc
 %   useI      : if 0 uses J indexing from the beginning
 %
 % Note: in general the workspace output is not needed but is provided here for  
 % debugging purposes or to help curious users understand how this function works
+%
+% If EVcreate is called multiple times using different values of p but with
+%   no change to X, parents or options, then call it the first time using
+%     [EV,workspace]=EVcreate(p,X,parents,options);
+% and on subsequent calls use
+%     EV=EVcreate(p,workspace);
 function [EV,workspace]=EVcreate(p,X,parents,options)
 if nargin==2
   ws=X;
@@ -37,11 +43,12 @@ if nargin==2
   else
     vreorder = [];
   end
-  if exist('tprod','file') 
+  if exist('EVmergefunc','file') 
     EV=@(varargin) EVeval(p,ws.Ip,ws.Iy,ws.Jp,ws.Jy,vreorder,1,varargin{:}); 
   else 
     EV=@(varargin) EVevalb(p,ws.Ip,ws.Iy,ws.Jp,ws.Jy,vreorder,1,varargin{:}); 
   end
+  workspace=ws;
 else
   m=length(p);
   order=[];
@@ -106,10 +113,10 @@ else
     parentsout=parentscombined;
   end
   clear X Xin Xout Xcombined parentsin parentsout parentscombined i m
-  if exist('tprod','file') && ~usebsxfun
+  if exist('EVmergefunc','file') && ~usebsxfun
     EV=@(varargin) EVeval(p,Ip,Iy,Jp,Jy,vreorder,useI,varargin{:}); 
   else 
-    EV=@(varargin) evalEVb(p,Ip,Iy,Jp,Jy,vreorder,useI,varargin{:}); 
+    EV=@(varargin) EVevalb(p,Ip,Iy,Jp,Jy,vreorder,useI,varargin{:}); 
   end
   if nargout>1
     workspace.p=p;
@@ -159,6 +166,7 @@ else
   %y = reshape(v,length(v)/ni,ni) * p{1}; y = y(:,Jp{1}(Ie));
   useI=false;
 end
+expanded=false;
 for i=2:m
   % determine if switchover to J indexing should occur (if it hasn't already)
   if extract && useI && (nIe<=max(length(Iy{i}),size(y,3)) || i==m)
@@ -168,17 +176,21 @@ for i=2:m
   if useI
     y=EVmergefunc(y,Iy{i},p{i},Ip{i});
   else
-    if isempty(Jy{i})
-      % check if selection has already been applied in a previous step  
-      if i>1 && isempty(Jy{i-1}), yind=[];
-      else                        yind=uint64(Ie);
+    if expanded, yind=[];
+    else
+      if isempty(Jy{i})
+        % check if selection has already been applied in a previous step  
+        if i>1 && isempty(Jy{i-1}), yind=[];
+        else                        yind=uint64(Ie);
+        end
+      else                          yind=Jy{i}(Ie);
       end
-    else                          yind=Jy{i}(Ie);
     end
     if isempty(Jp{i}),   pind=uint64(Ie);
     else                 pind=Jp{i}(Ie);
     end
     y=EVmergefunc(y,yind,p{i},pind);
+    expanded=true;
   end
 end
 y=y(:);
