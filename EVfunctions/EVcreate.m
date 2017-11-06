@@ -105,7 +105,7 @@ else
     if isempty(mergevec) && ~isempty(mm)
       pp=cellfun(@(x)size(x,1),p);
       pp=fliplr(cumprod(fliplr(pp)));
-      mergevec=optmergeorder(pp,mm,options);
+      mergevec=EVoptgroups(pp,mm,options);
     end
 
     % combine CPTs as needed
