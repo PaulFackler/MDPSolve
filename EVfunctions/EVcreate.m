@@ -19,6 +19,14 @@
 %   order     : m-vector if alternative order of operation
 %   usebsxfun : forces the use of bsxfun rather than EVmergefunc
 %   useI      : if 0 uses J indexing from the beginning
+%   vreorder  : reordering vector for v (ignored if order option is defined)
+%   mergevec  : vector providing merge information with sum(mergevec)=m
+%                 An EV function is created with length(mergevec) components
+%                 The default is ones(1,m), i.e., one component for each variable
+%                 mergevec=m results in a single transition matrix
+%   getoptord : attempts to find optimal combination method
+%   expandall : expands all of the CPTS to have nx columns
+%   nx        : sizes of the X variables [used to determine optimal grouping]
 %
 % Note: in general the workspace output is not needed but is provided here for  
 % debugging purposes or to help curious users understand how this function works
@@ -54,38 +62,89 @@ else
   order=[];
   usebsxfun=false;
   useI=true;
+  vreorder=[];
+  mergevec=[];
+  getoptord=false;
+  expandall=false;
+  mm=[];
+  nx=[];
   if exist('options','var') && ~isempty(options)
-    if isfield(options,'order'),     order     = options.order;     end
-    if isfield(options,'usebsxfun'), usebsxfun = options.usebsxfun; end
-    if isfield(options,'useI'),      useI   = options.useI;         end
+    if isfield(options,'order'),     order      = options.order;     end
+    if isfield(options,'usebsxfun'), usebsxfun  = options.usebsxfun; end
+    if isfield(options,'useI'),      useI       = options.useI;      end
+    if isfield(options,'vreorder'),  vreorder   = options.vreorder;  end
+    if isfield(options,'mergevec'),  mergevec   = options.mergevec;  end
+    if isfield(options,'mm'),        mm         = options.mm;        end
+    if isfield(options,'getoptord'), getoptord  = options.getoptord; end
+    if isfield(options,'expandall'), expandall  = options.expandall; end
+    if isfield(options,'nx'),        nx         = options.nx;        end
   end
-  if ~isempty(order)
-    if length(order)~=m
-      error(['options.order must be an ' num2str(m) '-vector']);
-    end
-    n=cellfun(@(x)size(x,1),p);
-    p=p(order);
-    parents=parents(order);
-    % create an index to reorder v
-    vreorder=reshape(1:prod(n),n(m:-1:1));
-    vreorder=permute(vreorder,m+1-order(m:-1:1));
-    vreorder=vreorder(:);
+  if getoptord
+    [p,parents,order,vreorder]=EVpreprocess(p,X,parents);
+    m=length(p);
   else
-    vreorder=[];
+    % check if mergevec is correctly specified
+    if ~isempty(mergevec) && sum(mergevec)~=m,
+      error('mergevec is incorrectly specified')
+    end
+    if length(mergevec)==m, mergevec=[]; end  % no preprocessing needed
+
+    if ~isempty(order)
+      if length(order)~=m
+        error(['options.order must be an ' num2str(m) '-vector']);
+      end
+      n=cellfun(@(x)size(x,1),p);
+      p=p(order);
+      parents=parents(order);
+      % create an index to reorder v
+      vreorder=reshape(1:prod(n),n(m:-1:1));
+      vreorder=permute(vreorder,m+1-order(m:-1:1));
+      vreorder=vreorder(:);
+    end
+    % get optimal grouping
+    if isempty(mergevec) && ~isempty(mm)
+      pp=cellfun(@(x)size(x,1),p);
+      pp=fliplr(cumprod(fliplr(pp)));
+      mergevec=optmergeorder(pp,mm,options);
+    end
+
+    % combine CPTs as needed
+    if ~isempty(mergevec)
+      k=0;
+      m=length(mergevec);
+      for i=1:m
+        [p{i},parents{i}]=mergecpts(p(k+1:k+mergevec(i)),parents(k+1:k+mergevec(i)),X);
+        k=k+mergevec(i);
+      end
+      % check if full transition matrix is used
+      p=p(1:m);
+      parents=parents(1:m);
+      if m==1
+        EV=@(varargin) EVuseP(p{1},varargin{:});
+        return
+      end
+    end
   end
+  
+  % create index vectors
   Ip=cell(1,m); Iy=cell(1,m); Jp=cell(1,m); Jy=cell(1,m);
+  mm=zeros(1,m);
   parentsall=unique([parents{:}]);
   parentsout=parents{1};
   [Xout,~,Jp{1}]=unique(X(:,parents{1}),'rows');
   if size(Xout,1)~=size(p{1},2)
     error('parents{1} is incompatible with p{1}')
   end
+  mm(1)=size(Xout,1);
   for i=2:m
     parentscombined=union(parentsout,parents{i});
-    Xcombined=unique(X(:,parentscombined),'rows');
+    if ~isequal(parentsout,parentscombined)
+      Xcombined=unique(X(:,parentscombined),'rows');
+    end
+    mm(i)=size(Xcombined,1);
     if isequal(parents{i},parentscombined) 
       Ip{i}=[]; 
-      mi=size(Xcombined,1);
+      mi=mm(i);
     else
       ii=ismember(parentscombined,parents{i});
       [~,~,Ip{i}]=unique(Xcombined(:,ii),'rows');
@@ -125,9 +184,18 @@ else
     workspace.Jp=Jp;
     workspace.Jy=Jy;
     workspace.vreorder=vreorder;
+    workspace.mm=mm;
+    workspace.mergevec=mergevec;
   end
 end
 
+% special case when the full transition matrix is used
+function y=EVuseP(P,v,Ix)
+if nargin==2
+  y=P'*v;
+else
+  y=P(:,Ix)'*v;
+end
 
 % EVeval Evaluates an EV function using EVmergefunc
 % USAGE
@@ -146,95 +214,56 @@ end
 % OUTPUT
 %   y  : E[v]
 
-% Note: empty index vector avoid unnecessary indexing
+% Note: empty index vector avoids unnecessary indexing by indicating that all
+%       columns are used
 function y=EVeval(p,Ip,Iy,Jp,Jy,vreorder,useI,v,Ie)
 if nargin>8, extract=true; nIe=length(Ie); else extract=false; end
 if ~isempty(vreorder), v=v(vreorder); end
 m=length(p);
 ni=size(p{1},1);
-if ~extract || (useI && nIe>=size(p{1},2))
+if ~extract
   y = reshape(v,length(v)/ni,ni) * p{1}; 
-else
-  if isempty(Jp{1}),   pind=uint64(Ie);
-  else                 pind=Jp{1}(Ie);
-  end
-  y = reshape(v,numel(v)/ni,ni) * p{1}(:,pind);
-  %disp('Using J indexing starting in iteration 1')
-  %   the following line seems like it should be faster than the one above
-  %   but indexing is slow and expanding columns of y, which is 
-  %   generally much bigger than p{1}, slows down this operation
-  %y = reshape(v,length(v)/ni,ni) * p{1}; y = y(:,Jp{1}(Ie));
-  useI=false;
-end
-expanded=false;
-for i=2:m
-  % determine if switchover to J indexing should occur (if it hasn't already)
-  if extract && useI && (nIe<=max(length(Iy{i}),size(y,3)) || i==m)
-    %disp(['Using J indexing starting in iteration ' num2str(i)])
-    useI=false;
-  end
-  if useI
+  for i=2:m
     y=EVmergefunc(y,Iy{i},p{i},Ip{i});
+  end
+else
+  if useI && nIe>=size(p{1},2)
+    y = reshape(v,length(v)/ni,ni) * p{1}; 
+    expanded=false;
   else
-    if expanded, yind=[];
-    else
-      if isempty(Jy{i})
-        % check if selection has already been applied in a previous step  
-        if i>1 && isempty(Jy{i-1}), yind=[];
-        else                        yind=uint64(Ie);
-        end
-      else                          yind=Jy{i}(Ie);
-      end
+    if isempty(Jp{1}),   pind=uint64(Ie);
+    else                 pind=Jp{1}(Ie);
     end
-    if isempty(Jp{i}),   pind=uint64(Ie);
-    else                 pind=Jp{i}(Ie);
-    end
-    y=EVmergefunc(y,yind,p{i},pind);
+    y = reshape(v,numel(v)/ni,ni) * p{1}(:,pind);
+    useI=false;
     expanded=true;
   end
+  for i=2:m
+    % determine if switchover to J indexing should occur (if it hasn't already)
+    if useI && (nIe<=max(length(Iy{i}),size(y,3)) || i==m)
+      %disp(['Using J indexing starting in iteration ' num2str(i)])
+      useI=false;
+    end
+    if useI
+      y=EVmergefunc(y,Iy{i},p{i},Ip{i});
+    else
+      if expanded, yind=[];
+      else
+        if isempty(Jy{i}), yind=uint64(Ie);
+        else               yind=Jy{i}(Ie);
+        end
+      end
+      if isempty(Jp{i}),   pind=uint64(Ie);
+      else                 pind=Jp{i}(Ie);
+      end
+      y=EVmergefunc(y,yind,p{i},pind);
+      expanded=true;
+    end
+  end
 end
+
 y=y(:);
 
-% Evaluates an EV function using tprod
-function y=EVevalt(p,Ip,Iy,Jp,Jy,vreorder,useI,v,Ie)
-if nargin>8, extract=true; nIe=length(Ie); else extract=false; end
-if ~isempty(vreorder), v=v(vreorder); end
-m=length(p);
-ni=size(p{1},1);
-if ~extract || (useI && nIe>=size(p{1},2))
-  y = reshape(v,length(v)/ni,ni) * p{1}; 
-else
-  y = reshape(v,numel(v)/ni,ni) * p{1}(:,Jp{1}(Ie));
-  %disp('Using J indexing starting in iteration 1')
-  %   the following line seems like it should be faster than the one above
-  %   but indexing is slow and expanding columns of y, which is 
-  %   generally much bigger than p{1}, slows down this operation
-  %y = reshape(v,length(v)/ni,ni) * p{1}; y = y(:,Jp{1}(Ie));
-  useI=false;
-end
-for i=2:m
-  % determine if switchover to J indexing should occur (if it hasn't already)
-  if extract && useI && (nIe<=max(length(Iy{i}),size(y,3)) || i==m)
-    %disp(['Using J indexing starting in iteration ' num2str(i)])
-    useI=false;
-    if isempty(Jy{i}),   y=y(:,Ie);
-    else                 y=y(:,Jy{i}(Ie));
-    end
-  end
-  ni=size(p{i},1);
-  y=reshape(y,[size(y,1)/ni,ni,size(y,2)]);
-  if useI
-    if ~isempty(Iy{i}), y=y(:,:,Iy{i}); end
-    if ~isempty(Ip{i}), y=tprod(y, [1 -1 2], p{i}(:,Ip{i}),[-1 2]);
-    else                y=tprod(y, [1 -1 2], p{i},         [-1 2]);
-    end
-  else
-    if ~isempty(Jp{i}), y=tprod(y, [1 -1 2], p{i}(:,Jp{i}(Ie)), [-1 2]);
-    else                y=tprod(y, [1 -1 2], p{i}(:,Ie),        [-1 2]);
-    end
-  end
-end
-y=y(:);
 
 function y=EVevalb(p,Ip,Iy,Jp,Jy,vreorder,useI,v,Ie)
 if nargin>8, extract=true; nIe=length(Ie); else extract=false; end
