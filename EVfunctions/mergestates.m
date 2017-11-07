@@ -19,10 +19,10 @@
 % This function preserves lexicographic ordering of the states. Specifically
 % if the Sj matrices have lexicographically ordered rows, S will also.
 %
-% See documetation for extended functionality
+% See documentation for extended functionality
 
 % MDPSOLVE: MATLAB tools for solving Markov Decision Problems
-% Copyright (c) 2011, Paul L. Fackler (paul_fackler@ncsu.edu)
+% Copyright (c) 2011-2017, Paul L. Fackler (paul_fackler@ncsu.edu)
 % All rights reserved.
 % 
 % Redistribution and use in source and binary forms, with or without  
