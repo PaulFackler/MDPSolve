@@ -17,7 +17,7 @@ parents=getparents(DD);
   fprintf([dname '=[];\n']);
   for i=1:d      
     if ischar(DD.types{i}), typei = DD.types{i};
-    else                      typei = typestring(DD.types{i});
+    else                    typei = typestring(DD.types{i});
     end
     fprintf([dname '=add2diagram(' dname ',''' DD.names{i} ...
         ''',''' typei ''','])  
