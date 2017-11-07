@@ -286,7 +286,7 @@ function [vnew,xnew] = valmax(v)
   end
   vnew=R+d.*vnew;
   if Xindexed
-    [vnew,xnew]=indexmax(vnew,Ix,ns);  % use mex version for greater speed
+    [vnew,xnew]=indexmax(vnew,double(Ix),double(ns));  % use mex version for greater speed
   else
     [vnew,xnew]=max(reshape(vnew,ns,na),[],2);
   end
