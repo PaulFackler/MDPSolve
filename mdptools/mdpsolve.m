@@ -185,7 +185,11 @@ function results = mdpsolve(model,options)
     end
     if algorithm=='p' && any(EV)
       warn0{1,end+1}={51}; % Policy iteration not implemented with EV option
-      algorithm='f';
+      if model.d<1
+        algorithm='i';
+      else
+        algorithm='f';
+      end
     end
     if isempty(v),  v=zeros(ns(1),1); 
     else            v=v(:);    
