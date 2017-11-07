@@ -393,13 +393,13 @@ function [errors,warnings,R,P,delta,ns,nx,Ix,Iexpand,colstoch,EV,T,nstage,nrep,X
           else
             code=checkP(Pi,ns(1),nx(1));
           end
-          clear Pi
           switch code
             case -2, if debug, error(' '); end; errors{end+1}={21};
             case -1, if debug, error(' '); end; errors{end+1}={23};
             case  0, colstoch=false;
             case  1, colstoch=true;
           end
+          clear Pi
         end
       end
       colstoch=repmat(colstoch,1,nstage);
