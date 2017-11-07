@@ -122,7 +122,7 @@ ws.Jy=Jy;
 ws.order=order;
 
 % Finds the values of ind2 associated with each value of ind1.
-% In this application ii(j) is always a value ind2.
+% In this application ii(j) is always a value in ind2.
 % If an element is in ind1 and not ind2 a 0 would be returned.
 function ii=associate(ind1,ind2)
 m=length(ind1);
@@ -131,6 +131,7 @@ for i=1:m
   ii(i)=find(ind1(i)==ind2);
 end
 
+% converts to appropriately sized integer
 function x=convert2int(x,n)
 if nargin<2, n=max(x); end
 if     n>=2^32, x=cast(x,'uint64');
