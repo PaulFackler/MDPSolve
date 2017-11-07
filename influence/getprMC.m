@@ -144,7 +144,12 @@ for i=1:length(s)
 end
 
 forcesparse=true;
-if ispc, memstats=memory; if memstats.MaxPossibleArrayBytes > ns*nx*8, forcesparce=true; end
+if ispc, 
+  memstats=memory; 
+  if memstats.MaxPossibleArrayBytes < ns*nx*8 
+    forcesparse=false; 
+  end
+end
 if forcesparse
   P=sparse(ns,nx);
 else
@@ -209,6 +214,7 @@ if printed==1, fprintf('\n'); end
 P=bsxfun(@rdivide,P,sum(P,1));  %P=P/reps;
 
 
+
 % mdpsim  Monte Carlo simulation of an Markov process
 % USAGE
 %   ind = mdpsim(p,s)
@@ -219,7 +225,6 @@ P=bsxfun(@rdivide,P,sum(P,1));  %P=P/reps;
 % OUTPUT
 %   ind : k by 1 vector of indices to rows of p
 function [ind,z] = mdpsim(p,s,z)
-
 %n = size(p,1);
 %u = ones(n,1);
 k = length(s);
