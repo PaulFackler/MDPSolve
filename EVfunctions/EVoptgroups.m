@@ -18,8 +18,8 @@ function [order,c]=EVoptgroups(p,m,options)
 penalty=0;
 indexed=false;
 if exist('options','var') && ~isempty(options)
-  if isfield(options,'penalty'),    penalty      = options.penalty;     end
-  if isfield(options,'indexed'),   indexed  = options.indexed; end
+  if isfield(options,'penalty'),   penalty = options.penalty; end
+  if isfield(options,'indexed'),   indexed = options.indexed; end
 end
 if indexed, m=min(m,p(1)); end
 d=length(p);
