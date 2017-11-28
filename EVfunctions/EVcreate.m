@@ -7,8 +7,9 @@
 %   parents : m-element cell array of conditioning variables (parents)
 %   options : structure variable (fields described below)
 % OUTPUTS
-%   EV        :  a function handle for an EV function
+%   EV        : a function handle for an EV function
 %   workspace : a structure variable containing the workspace of the EV function
+%
 % parents{i} contains the columns of X that condition the ith variable
 % Thus Xi=unique(X(:,parents{i}),'rows') contains the unique elements of the
 %   conditioning variables that condition output variable i.
@@ -16,17 +17,18 @@
 %   of columns in p{i}: size(Xi,1)=size(p{i},2)
 %
 % Options fields:
-%   order     : m-vector if alternative order of operation
-%   usebsxfun : forces the use of bsxfun rather than EVmergefunc
-%   useI      : if 0 uses J indexing from the beginning
-%   vreorder  : reordering vector for v (ignored if order option is defined)
-%   mergevec  : vector providing merge information with sum(mergevec)=m
-%                 An EV function is created with length(mergevec) components
-%                 The default is ones(1,m), i.e., one component for each variable
-%                 mergevec=m results in a single transition matrix
-%   getoptord : attempts to find optimal combination method
-%   expandall : expands all of the CPTS to have nx columns
-%   nx        : sizes of the X variables [used to determine optimal grouping]
+%   order       : m-vector if alternative order of operation
+%   usebsxfun   : forces the use of bsxfun rather than EVmergefunc
+%   useI        : if 0 uses J indexing from the beginning
+%   vreorder    : reordering vector for v (ignored if order option is defined)
+%   mergevec    : vector providing merge information with sum(mergevec)=m
+%                   An EV function is created with length(mergevec) components
+%                   The default is ones(1,m), i.e., one component for each variable
+%                   mergevec=m results in a single transition matrix
+%   getoptord   : attempts to find optimal combination method
+%   getoptgroup : determines the optimal grouping for a given order
+%   nx          : sizes of the X variables (used to determine optimal grouping)
+%   expandall   : expands all of the CPTS to have nx columns
 %
 % Note: in general the workspace output is not needed but is provided here for  
 % debugging purposes or to help curious users understand how this function works
@@ -36,158 +38,162 @@
 %     [EV,workspace]=EVcreate(p,X,parents,options);
 % and on subsequent calls use
 %     EV=EVcreate(p,workspace);
-function [EV,workspace]=EVcreate(p,X,parents,options)
-if nargin==2
-  ws=X;
-  % check if v needs to be reordered
-  if ~isempty(ws.order) && any(diff(ws.order)~=1)
-    m=length(p);
-    n=cellfun(@(x)size(x,1),p);
-    p=p(ws.order);
-    % create an index to reorder v
-    vreorder=reshape(1:prod(n),n(m:-1:1));
-    vreorder=permute(vreorder,m+1-ws.order(m:-1:1));
-    vreorder=vreorder(:);
-  else
-    vreorder = [];
-  end
-  if exist('EVmergefunc','file') 
-    EV=@(varargin) EVeval(p,ws.Ip,ws.Iy,ws.Jp,ws.Jy,vreorder,1,varargin{:}); 
-  else 
-    EV=@(varargin) EVevalb(p,ws.Ip,ws.Iy,ws.Jp,ws.Jy,vreorder,1,varargin{:}); 
-  end
-  workspace=ws;
+function [EV,ws]=EVcreate(p,X,parents,options)
+order=[];
+usebsxfun=false;
+useI=true;
+vreorder=[];
+getoptord=false;
+mergevec=[];
+pm=[];
+nx=[];
+expandall=false;
+getoptgroup=true;
+ws=[];
+if exist('options','var') && ~isempty(options)
+  if isfield(options,'order'),       order       = options.order;       end
+  if isfield(options,'usebsxfun'),   usebsxfun   = options.usebsxfun;   end
+  if isfield(options,'useI'),        useI        = options.useI;        end
+  if isfield(options,'getoptord'),   getoptord   = options.getoptord;   end
+  if isfield(options,'vreorder'),    vreorder    = options.vreorder;    end
+  if isfield(options,'mergevec'),    mergevec    = options.mergevec;    end
+  if isfield(options,'getoptgroup'), getoptgroup = options.getoptgroup; end
+  if isfield(options,'pm'),          pm          = options.pm;          end
+  if isfield(options,'nx'),          nx          = options.nx;          end
+  if isfield(options,'expandall'),   expandall   = options.expandall;   end
+  if isfield(options,'workspace'),   ws          = options.workspace;   end
 else
-  m=length(p);
-  order=[];
-  usebsxfun=false;
-  useI=true;
-  vreorder=[];
-  mergevec=[];
-  getoptord=false;
-  expandall=false;
-  mm=[];
-  nx=[];
-  if exist('options','var') && ~isempty(options)
-    if isfield(options,'order'),     order      = options.order;     end
-    if isfield(options,'usebsxfun'), usebsxfun  = options.usebsxfun; end
-    if isfield(options,'useI'),      useI       = options.useI;      end
-    if isfield(options,'vreorder'),  vreorder   = options.vreorder;  end
-    if isfield(options,'mergevec'),  mergevec   = options.mergevec;  end
-    if isfield(options,'mm'),        mm         = options.mm;        end
-    if isfield(options,'getoptord'), getoptord  = options.getoptord; end
-    if isfield(options,'expandall'), expandall  = options.expandall; end
-    if isfield(options,'nx'),        nx         = options.nx;        end
-  end
-  if getoptord
-    [p,parents,order,vreorder]=EVpreprocess(p,X,parents);
-    m=length(p);
-  else
-    % check if mergevec is correctly specified
-    if ~isempty(mergevec) && sum(mergevec)~=m,
-      error('mergevec is incorrectly specified')
-    end
-    if length(mergevec)==m, mergevec=[]; end  % no preprocessing needed
+  options=[];
+end
 
-    if ~isempty(order)
-      if length(order)~=m
-        error(['options.order must be an ' num2str(m) '-vector']);
-      end
-      n=cellfun(@(x)size(x,1),p);
-      p=p(order);
-      parents=parents(order);
-      % create an index to reorder v
-      vreorder=reshape(1:prod(n),n(m:-1:1));
-      vreorder=permute(vreorder,m+1-order(m:-1:1));
-      vreorder=vreorder(:);
-    end
-    % get optimal grouping
-    if isempty(mergevec) && ~isempty(mm)
-      pp=cellfun(@(x)size(x,1),p);
-      pp=fliplr(cumprod(fliplr(pp)));
-      mergevec=EVoptgroups(pp,mm,options);
-    end
+m=length(parents);
+% check if mergevec is correctly specified
+if ~isempty(mergevec) && sum(mergevec)~=m,
+  error('mergevec is incorrectly specified - must sum to m')
+end
+if length(mergevec)==m, mergevec=[]; end  % no preprocessing needed
 
-    % combine CPTs as needed
-    if ~isempty(mergevec)
-      k=0;
-      m=length(mergevec);
-      for i=1:m
-        [p{i},parents{i}]=mergecpts(p(k+1:k+mergevec(i)),parents(k+1:k+mergevec(i)),X);
-        k=k+mergevec(i);
-      end
-      % check if full transition matrix is used
-      p=p(1:m);
-      parents=parents(1:m);
-      if m==1
-        EV=@(varargin) EVuseP(p{1},varargin{:});
-        return
-      end
-    end
+
+% check if order is correctly specified
+if ~isempty(order)
+  if length(order)~=m
+    error(['options.order must be an ' num2str(m) '-vector']);
   end
-  
-  % create index vectors
-  Ip=cell(1,m); Iy=cell(1,m); Jp=cell(1,m); Jy=cell(1,m);
-  mm=zeros(1,m);
-  parentsall=unique([parents{:}]);
-  parentsout=parents{1};
-  [Xout,~,Jp{1}]=unique(X(:,parents{1}),'rows');
-  if size(Xout,1)~=size(p{1},2)
-    error('parents{1} is incompatible with p{1}')
+  if ~isequal(1:m,sort(order(:))')
+    error(['options.order must be a permutation of 1:' num2str(m)]);
   end
-  mm(1)=size(Xout,1);
-  for i=2:m
-    parentscombined=union(parentsout,parents{i});
-    if ~isequal(parentsout,parentscombined)
-      Xcombined=unique(X(:,parentscombined),'rows');
-    end
-    mm(i)=size(Xcombined,1);
-    if isequal(parents{i},parentscombined) 
-      Ip{i}=[]; 
-      mi=mm(i);
-    else
-      ii=ismember(parentscombined,parents{i});
-      [~,~,Ip{i}]=unique(Xcombined(:,ii),'rows');
-      mi=max(Ip{i});
-    end
-    if mi~=size(p{i},2)
-      error(['parents{' num2str(i) '} is incompatible with p{' num2str(i) '}'])
-    end
-    if length(parents{i})==length(parentsall)
-      Jp{i}=[];
-    else
-      [~,~,Jp{i}]=unique(X(:,parents{i}),'rows');
-    end
-    if isequal(parentsout,parentscombined) 
-      Iy{i}=[];
-    else
-      ii=ismember(parentscombined,parentsout);
-      [~,~,Iy{i}]=unique(Xcombined(:,ii),'rows');
-    end
-    if length(parentsout)==length(parentsall)
-      Jy{i}=[];
-    else
-      [~,~,Jy{i}]=unique(X(:,parentsout),'rows');
-    end
-    parentsout=parentscombined;
-  end
-  clear X Xin Xout Xcombined parentsin parentsout parentscombined i m
-  if exist('EVmergefunc','file') && ~usebsxfun
-    EV=@(varargin) EVeval(p,Ip,Iy,Jp,Jy,vreorder,useI,varargin{:}); 
-  else 
-    EV=@(varargin) EVevalb(p,Ip,Iy,Jp,Jy,vreorder,useI,varargin{:}); 
-  end
-  if nargout>1
-    workspace.p=p;
-    workspace.Ip=Ip;
-    workspace.Iy=Iy;
-    workspace.Jp=Jp;
-    workspace.Jy=Jy;
-    workspace.vreorder=vreorder;
-    workspace.mm=mm;
-    workspace.mergevec=mergevec;
+  if isequal(1:m,order(:)')
+    order=[];  % no reordering needed
   end
 end
+
+if ~isempty(ws) 
+  [Ip,Iy,Jp,Jy,Xp,yn,vreorder,mergevec]=unpackworkspace(ws);
+end 
+
+% get CPT sizes
+if ~isempty(p)
+  [pm,pn]=cellfun(@size,p);
+else
+  pn=[];
+end
+
+if getoptord
+  [order,mergevec]=EVoptorder(p,X,parents,nx,options); 
+  getoptgroup=false;
+end
+% reorder
+if ~isempty(order)
+  % create an index to reorder v
+  vreorder=shuffleindex(pm,order,1);
+  p=p(order);
+  parents=parents(order);
+  if isempty(mergevec) && ~getoptgroup
+    if ~isempty(pn)
+      pn=pn(order);
+      [Ip,Iy,Jp,Jy,Xp,yn]=EVindices(X,parents,pn); % performs checks on p
+    else
+      [Ip,Iy,Jp,Jy,Xp,yn]=EVindices(X,parents);           % no checks
+    end
+  end
+end
+% get optimal grouping
+if isempty(mergevec) && getoptgroup
+  pm=fliplr(cumprod(fliplr(pm)));
+  if ~exist('yn','var') || isempty(yn)
+    [Ip,Iy,Jp,Jy,Xp,yn]=EVindices(X,parents,pn);
+  end
+  mergevec=EVoptgroups(pm,yn,options);
+end
+
+% combine CPTs as needed
+if ~isempty(mergevec)
+  k = 0;
+  m = length(mergevec);
+  for i=1:m
+    ind = k+1:k+mergevec(i);
+    %tic
+    %[p2{i},parents2{i}] = mergecpts2(p(ind),X,parents(ind));
+    %tt=toc;
+    %tic
+    [p{i},parents{i}] = mergecpts(p(ind),X,parents(ind));
+    %disp(toc/tt)
+    %if ~isequal(p{i},p2{i})
+    %  error('oops')
+    %end
+    k = ind(end);
+  end
+  p = p(1:m);
+  parents = parents(1:m);
+  [Ip,Iy,Jp,Jy,Xp,yn] = EVindices(X,parents); 
+end
+
+% check if full transition matrix is used
+if m==1
+  p=p{1};
+  EV=@(varargin) EVuseP(p,varargin{:});
+  return
+end
+
+% if indices are not yet obtained then get them now
+if ~exist('Ip','var') 
+  if ~isempty(p)
+    pn=cellfun(@(x)size(x,2),p);
+    [Ip,Iy,Jp,Jy,Xp,yn]=EVindices(X,parents,pn); % performs checks on p
+  else
+    [Ip,Iy,Jp,Jy,Xp,yn]=EVindices(X,parents);    % no checks
+  end
+end
+
+clear X expandall getoptord i m nx order pm
+EV=@(varargin) EVeval(p,Ip,Iy,Jp,Jy,vreorder,useI,usebsxfun,varargin{:}); 
+if nargout>1
+  ws=packworkspace(Ip,Iy,Jp,Jy,Xp,yn,vreorder,mergevec);
+end
+
+
+% packworkspace Creates a workspace structure
+function workspace=packworkspace(Ip,Iy,Jp,Jy,Xp,yn,vreorder,mergevec)
+  workspace.Ip=Ip;
+  workspace.Iy=Iy;
+  workspace.Jp=Jp;
+  workspace.Jy=Jy;
+  workspace.Xp=Xp;
+  workspace.yn=yn;
+  workspace.vreorder=vreorder;
+  workspace.mergevec=mergevec;
+  
+% unpackworkspace Extracts the elements of a workspace structure
+function [Ip,Iy,Jp,Jy,Xp,yn,vreorder,mergevec]=unpackworkspace(workspace)
+  Ip=workspace.Ip;
+  Iy=workspace.Iy;
+  Jp=workspace.Jp;
+  Jy=workspace.Jy;
+  Xp=workspace.Xp;
+  yn=workspace.yn;
+  vreorder=workspace.vreorder;
+  mergevec=workspace.mergevec;
+  
 
 % special case when the full transition matrix is used
 function y=EVuseP(P,v,Ix)
@@ -216,8 +222,8 @@ end
 
 % Note: empty index vector avoids unnecessary indexing by indicating that all
 %       columns are used
-function y=EVeval(p,Ip,Iy,Jp,Jy,vreorder,useI,v,Ie)
-if nargin>8, extract=true; nIe=length(Ie); else extract=false; end
+function y=EVeval(p,Ip,Iy,Jp,Jy,vreorder,useI,usebsxfun,v,Ie)
+if nargin>9, extract=true; nIe=length(Ie); else extract=false; end
 if ~isempty(vreorder), v=v(vreorder); end
 m=length(p);
 ni=size(p{1},1);
@@ -245,7 +251,7 @@ else
       useI=false;
     end
     if useI
-      y=EVmergefunc(y,Iy{i},p{i},Ip{i});
+      y=indexedmult(y,Iy{i},p{i},Ip{i},false,usebsxfun);
     else
       if expanded, yind=[];
       else
@@ -256,83 +262,41 @@ else
       if isempty(Jp{i}),   pind=uint64(Ie);
       else                 pind=Jp{i}(Ie);
       end
-      y=EVmergefunc(y,yind,p{i},pind);
+      y=indexedmult(y,yind,p{i},pind,false,usebsxfun);
       expanded=true;
     end
   end
 end
-
 y=y(:);
 
 
-function y=EVevalb(p,Ip,Iy,Jp,Jy,vreorder,useI,v,Ie)
-if nargin>8, extract=true; nIe=length(Ie); else extract=false; end
-if ~isempty(vreorder), v=v(vreorder); end
-m=length(p);
-ni=size(p{1},1);
-if ~extract || (useI && nIe>=size(p{1},2))
-  y = reshape(v,length(v)/ni,ni) * p{1}; 
-else
-  y = reshape(v,numel(v)/ni,ni) * p{1}(:,Jp{1}(Ie));
-  useI=false;
-end
-for i=2:m
-  % determine if switchover to J indexing should occur (if it hasn't already)
-  if extract && useI && (nIe<=max(length(Iy{i}),size(y,3)) || i==m)
-    %disp(['Using J indexing starting in iteration ' num2str(i)])
-    useI=false;
-    nIe=length(Ie);
-    if isempty(Jy{i}),   y=y(:,Ie);
-    else                 y=y(:,Jy{i}(Ie));
-    end
-  end
-  ni=size(p{i},1);
-  y=reshape(y,[size(y,1)/ni,ni,size(y,2)]);
-  if useI
-    if ~isempty(Iy{i}), y=y(:,:,Iy{i});  end
-    nIpi=length(Ip{i});
-    if nIpi>0, y=bsxfun(@times,y,reshape(p{i}(:,Ip{i}),[1 ni nIpi]));
-    else       y=bsxfun(@times,y,reshape(p{i},         [1 size(p{i})]));
-    end
-  else
-    if ~isempty(Jp{i}), y=bsxfun(@times,y,reshape(p{i}(:,Jp{i}(Ie)),[1 ni nIe]));
-    else                y=bsxfun(@times,y,reshape(p{i}(:,Ie),       [1 ni nIe]));
-    end
-  end
-  y=squeeze(sum(y,2));
-end
-y=y(:);
 
-
-function z=merge(x,xind,y,yind)
-p=size(y,1);
-n=size(x,1)/p;
-if isempty(xind)
-  m=size(x,2);
-else
-  m=length(xind);
-end
-x=reshape(x,[n,p,size(x,2)]);
-z=zeros(n,m);
-if isempty(xind)
-  if isempty(yind)
-    for i=1:m
-      z(:,i)=x(:,:,i)*y(:,i);
-    end
-  else
-    for i=1:m
-      z(:,i)=x(:,:,i)*y(:,yind(i));
-    end
+% THIS DOES NOT WORK CORRECTLY
+% combines index vectors for group merges  
+function [Ip,Iy,Jp,Jy,pn]=combineindices(mergevec,Ip,Iy,Jp,Jy,pn)
+cmv=cumsum(mergevec);
+m=length(mergevec);
+% need to handle missing index vectors (which indicate that parents and 
+%   parentscombined are identical)
+Jp{1}=Jp{1};
+Jy{1}=ones(size(Jp{1}));
+for i=1:m
+  if i==1, lb=1;
+  else     lb=cmv(i-1)+1;
   end
-else
-  if isempty(yind)
-    for i=1:m
-      z(:,i)=x(:,:,xind(i))*y(:,i);
-    end
-  else
-    for i=1:m
-      z(:,i)=x(:,:,xind(i))*y(:,yind(i));
-    end
+  Jp{i}=Jp{lb};
+  Jy{i}=Jy{lb};
+  Ipi=Ip{cmv(i)};
+  Iyi=Iy{cmv(i)};
+  for j=cmv(i)-1:-1:lb
+    Ipi=Ip{j}(Ipi);
+    Iyi=Iy{j}(Iyi);
   end
+  Ip{i}=Ipi;
+  Iy{i}=Iyi;
 end
-
+Ip=Ip(1:m);
+Jp=Jp(1:m);
+Iy=Iy(1:m);
+Jy=Jy(1:m);
+if nargin>=6, pn=pn(cmv); end
