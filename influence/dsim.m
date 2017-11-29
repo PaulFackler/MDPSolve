@@ -2,14 +2,16 @@
 % USAGE
 %   [Y,z]=dsim(D,s0,T,A,pval,z);
 % INPUTS
-%   D     : an influence diagram structure
-%   s0    : initial state values (1 x ns vector or reps x ns matrix)
-%   T     : time horizon
-%   A     : ns x da matrix representing the strategy or
-%             a function handle of the form A(S)
-%   pval  : parameter values (if any variables are parameter type an
-%             assumed value must be specified)
-%   z     : cell array of random values from previous call to dsim
+%   D       : an influence diagram structure
+%   s0      : initial state values (1 x ns vector or reps x ns matrix)
+%   T       : time horizon
+%   A       : ns x da matrix representing the strategy or
+%               a function handle of the form A(S)
+%   pval    : parameter values (if any variables are parameter type an
+%               assumed value must be specified)
+%   z       : cell array of random values from previous call to dsim
+%   keepall : d-element logical vector to indicate which variables are kept at 
+%               every period; if keepall(i)=false only the last period is returned
 % OUTPUT
 %   Y     : d-element cell array containing reps x T+1 matrices, one
 %             for each of the d variables in the diagram
@@ -51,7 +53,7 @@
 % For more information, see the Open Source Initiative OSI site:
 %   http://www.opensource.org/licenses/bsd-license.php
 
-function [Y,z]=dsim(D,s0,T,A,pval,z)
+function [Y,z]=dsim(D,s0,T,A,pval,z,keepall)
 
 d=length(D.names);
 reps=size(s0,1);
@@ -60,6 +62,7 @@ if nargin<5 && any(ismember(types,'p'))
   error('parameter values must be specified when parameters are included')
 end
 if nargin<6, z=[]; end
+if nargin<7, keepall=true(1,d); end
 cpds=D.cpds;
 parents=getparents(D);
 Y=cell(1,d);    % storage for all variables & time periods
@@ -87,7 +90,7 @@ for i=1:d
   if strcmp(cpdi.type,'d') && ~isempty(parents{i}) && isempty(cpdi.parameters)
     cpds{i}=getmatchfunc(cpdi,D.values(parents{i}));
   end
-  Y{i}=zeros(reps,T);
+  if keepall(i), Y{i}=zeros(reps,T+1); end
   switch types{i}
     case 's'
       ns=ns+1;
@@ -99,7 +102,7 @@ for i=1:d
         otherwise
           error('S0 must have one or reps rows')
       end
-      Y{i}(:,1)=St{i}; 
+      if keepall(i), Y{i}(:,1)=St{i}; end
     case {'a','d'}
       na=na+1;
       match(i)=na;
@@ -159,7 +162,6 @@ for t=1:T
       else
         St{i}=At(:,match(i));
       end
-      Y{i}(:,t)=St{i}; 
     case {'c','u','r','f','h'}
       switch vartypes(i)
       case 1
@@ -168,14 +170,20 @@ for t=1:T
         [St{i},z{i}{t}]=rvgen(reps,cpds{i},St(parents{i}),z{i}{t});
       end
     end
-    Y{i}(:,t)=St{i};
-    if types{i}=='f' && t<T
-      Y{match(i)}(:,t+1)=St{i};
+    if keepall(i)
+      Y{i}(:,t)=St{i};
+      ii=match(i);
+      if types{i}=='f' && t<T && keepall(ii)
+        Y{ii}(:,t+1)=St{i};
+      end
     end
   end
   % change future states to current states
   if ~isempty(stateind)
     St(match(fvars))=St(fvars);
   end
+end
+for i=1:d
+  if ~keepall(i), Y{i}=St{i}; end
 end
 return
