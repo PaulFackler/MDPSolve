@@ -5,6 +5,11 @@
 #include "mex.h"
 #include "blas.h"
 #include <math.h>
+//#include <time.h>
+     
+  //   clock_t start, end;
+     
+
 
 /*
 % EVmergefuncm specialized indexed multiplication operation for use with EV functions
@@ -21,6 +26,25 @@
 % mx/my must be an integer
 */
 
+// basic matrix-vector multiply b=A*x where A is m x n
+void matvecmult(double *b, double *A, double *x, mwSize m, mwSize n){
+  double *bi, *bend, xj, *xend;
+  bend = b + m;
+  xend = x + n;
+  while (x < xend){
+    xj = *x++;
+    if (xj!=0) {
+      bi=b;
+      while (bi < bend) *bi++ += *A++ * xj;
+    }
+    else {
+      A+=m;
+    }
+  }
+}
+
+// the indexcheck functions check index vectors for valid values and convert
+// them to mwSize type
 bool indexcheck8(mwSize *indout, uint8_T *indexin, mwSize p, mwSize n){
 bool okay=true;
 mwSize i;
@@ -71,18 +95,13 @@ mwSize i;
   return(okay);
 }
 
+// 4 versions of the basic operation which depend on whether x and y have
+// associated index vectors or whether every column is used
 void merge00(double *z, double *x, double *y, mwSize p, mwSize mx, mwSize my){
-  size_t rx,cx, cy;
-  mwSize i;  
-  char *chn = "N";
-    /* scalar values to use in dgemm */
-  double one = 1.0, zero = 0.0;
+  mwSize rx, i;
   rx = mx/my;
-  cy = 1;
-  cx = my;
   for (i=0; i<p; i++){
-     /* Pass arguments to Fortran by reference */
-    dgemm(chn, chn, &rx, &cy, &cx, &one, x, &rx, y, &cx, &zero, z, &rx);
+    matvecmult(z, x, y, rx, my);
     x += mx;
     y += my;
     z += rx;
@@ -92,18 +111,11 @@ void merge00(double *z, double *x, double *y, mwSize p, mwSize mx, mwSize my){
 
 void merge01(double *z, double *x, double *y, mwSize *yind,   
              mwSize p, mwSize mx, mwSize my){
-  size_t rx,cx, cy;
-  mwSize i; 
-  char *chn = "N";
-    /* scalar values to use in dgemm */
-  double one = 1.0, zero = 0.0; 
+  mwSize rx, i; 
   rx = mx/my;
-  cy = 1;
-  cx = my;
   y -= my;    // convert to 1-base indexing
   for (i=0; i<p; i++){
-     /* Pass arguments to Fortran by reference */
-    dgemm(chn, chn, &rx, &cy, &cx, &one, x, &rx, y+my*(mwSize)yind[i], &cx, &zero, z, &rx);
+    matvecmult(z, x, y+my*yind[i], rx, my);
     x += mx;
     z += rx;
   }
@@ -111,18 +123,11 @@ void merge01(double *z, double *x, double *y, mwSize *yind,
 
 void merge10(double *z, double *x, double *y, mwSize *xind,    
              mwSize p, mwSize mx, mwSize my){
-  size_t rx,cx, cy;
-  mwSize i;  
-  char *chn = "N";
-    /* scalar values to use in dgemm */
-  double one = 1.0, zero = 0.0;
+  mwSize rx, i; 
   rx = mx/my;
-  cy = 1;
-  cx = my;
-  x -= mx;        // convert to 1-base indexing
+  x -= mx;      // convert to 1-base indexing
   for (i=0; i<p; i++){
-     /* Pass arguments to Fortran by reference */
-    dgemm(chn, chn, &rx, &cy, &cx, &one, x+mx*(mwSize)xind[i], &rx, y, &cx, &zero, z, &rx);
+    matvecmult(z, x+mx*xind[i], y, rx, my);
     y += my;
     z += rx;
   }
@@ -130,23 +135,16 @@ void merge10(double *z, double *x, double *y, mwSize *xind,
 
 void merge11(double *z, double *x, double *y, mwSize *xind, mwSize *yind, 
              mwSize p, mwSize mx, mwSize my){
-  size_t rx, cx, cy;
-  mwSize i;  
-  char *chn = "N";
-    /* scalar values to use in dgemm */
-  double one = 1.0, zero = 0.0;
+  mwSize rx, i; 
   rx = mx/my;
-  cy = 1;
-  cx = my;
   x -= mx; y -= my;    // convert to 1-base indexing
   for (i=0; i<p; i++){
-     /* Pass arguments to Fortran by reference */
-    dgemm(chn, chn, &rx, &cy, &cx, &one, x+mx*(mwSize)xind[i], &rx, y+my*(mwSize)yind[i], &cx, &zero, z, &rx);
+    matvecmult(z, x+mx*xind[i], y+my*yind[i], rx, my);
     z += rx;
   }
 }
 
-// sparse versions
+// 4 versions for sparse y (x is assumed to be full)
 void merge00s(double *z, double *x, double *y, 
              mwSize p, mwSize mx, mwSize my, mwSize *Iry, mwSize *Jcy){
   double *xj, *xji, *yj, yji;
@@ -246,6 +244,9 @@ void mexFunction(
   mwSize *xind, *yind, *Iry, *Jcy;
   mwSize p, px, py, mx, my, nx, ny, i;
   bool okay=true, ysparse;
+  bool getxind=true, getyind=true;
+  //uint_fast8_t iiii;  
+  //printf("intsize %1i\n",sizeof(iiii));
   
   /* Error checking on inputs */  
   if (nrhs>4 || nrhs<4) mexErrMsgTxt("Invalid number of input arguments");
@@ -281,71 +282,91 @@ void mexFunction(
   if (py>0 && py!=p)
       mexErrMsgTxt("yind has an incorrect # of elements");
 
-
+  //start = clock();
+  
   if (px>0){  
-    xind = mxMalloc(p*sizeof(mwSize));
-    xy   = mxGetData(prhs[1]);
-    switch (mxGetClassID(prhs[1])) {
-      case mxUINT8_CLASS:  okay=indexcheck8(xind, xy, p, nx);  break; 
-      case mxUINT16_CLASS: okay=indexcheck16(xind, xy, p, nx);  break; 
-      case mxUINT32_CLASS: okay=indexcheck32(xind, xy, p, nx);  break; 
-      case mxUINT64_CLASS: okay=indexcheck64(xind, xy, p, nx);  break; 
-      case mxDOUBLE_CLASS: okay=indexcheckD(xind, xy, p, nx);  break; 
-      default:
-        mexErrMsgTxt("xind is an improper data type - it must be an unsigned integer type");
+    if (mxGetClassID(prhs[1])==mxUINT64_CLASS && sizeof(mwSize)==8){
+      xind=mxGetData(prhs[1]);
+      getxind=false;
+    }
+    else {
+      xind = mxMalloc(p*sizeof(mwSize));
+      xy   = mxGetData(prhs[1]);
+      switch (mxGetClassID(prhs[1])) {
+        case mxUINT8_CLASS:  okay=indexcheck8(xind, xy, p, nx);  break; 
+        case mxUINT16_CLASS: okay=indexcheck16(xind, xy, p, nx);  break; 
+        case mxUINT32_CLASS: okay=indexcheck32(xind, xy, p, nx);  break; 
+        case mxUINT64_CLASS: okay=indexcheck64(xind, xy, p, nx);  break; 
+        case mxDOUBLE_CLASS: okay=indexcheckD(xind, xy, p, nx);  break; 
+        default:
+          mexErrMsgTxt("xind is an improper data type - it must be an unsigned integer type");
+      }
     }
   }
   if (!okay)
      mexErrMsgTxt("xind has invalid values");
+  
 
-  if (py>0){  
-    yind = mxMalloc(p*sizeof(mwSize));
-    xy   = mxGetData(prhs[3]);
-    switch (mxGetClassID(prhs[3])) {
-      case mxUINT8_CLASS:  okay=indexcheck8(yind, xy, p, ny);  break; 
-      case mxUINT16_CLASS: okay=indexcheck16(yind, xy, p, ny); break; 
-      case mxUINT32_CLASS: okay=indexcheck32(yind, xy, p, ny); break; 
-      case mxUINT64_CLASS: okay=indexcheck64(yind, xy, p, ny); break; 
-      case mxDOUBLE_CLASS: okay=indexcheckD(yind, xy, p, ny);  break; 
-      default:
-        mexErrMsgTxt("yind is an improper data type - it must be an unsigned integer type");
+  if (py>0){ 
+    if (mxGetClassID(prhs[3])==mxUINT64_CLASS && sizeof(mwSize)==8){
+      yind=mxGetData(prhs[3]);
+      getyind=false;
+    }
+    else {
+      yind = mxMalloc(p*sizeof(mwSize));
+      xy   = mxGetData(prhs[3]);
+      switch (mxGetClassID(prhs[3])) {
+        case mxUINT8_CLASS:  okay=indexcheck8(yind, xy, p, ny);  break; 
+        case mxUINT16_CLASS: okay=indexcheck16(yind, xy, p, ny); break; 
+        case mxUINT32_CLASS: okay=indexcheck32(yind, xy, p, ny); break; 
+        case mxUINT64_CLASS: okay=indexcheck64(yind, xy, p, ny); break; 
+        case mxDOUBLE_CLASS: okay=indexcheckD(yind, xy, p, ny);  break; 
+        default:
+          mexErrMsgTxt("yind is an improper data type - it must be an unsigned integer type");
+      }
     }
   }
   if (!okay)
      mexErrMsgTxt("yind has invalid values");
-
+  
+  
+    // end = clock();
+    // printf("%12.8e  ", ((double) (end - start)) / CLOCKS_PER_SEC);
 
   x    = mxGetPr(prhs[0]);
   y    = mxGetPr(prhs[2]);
-
   
-  plhs[0]=mxCreateDoubleMatrix(mx/my,p, mxREAL);
+  plhs[0]=mxCreateDoubleMatrix(mx/my, p, mxREAL);
   z=mxGetPr(plhs[0]);
 
   //plhs[0]=mxCreateUninitNumericMatrix(mx/my,p,mxDOUBLE_CLASS, mxREAL);
   //z=mxGetData(plhs[0]);
-  
-  
+   //start = clock();
   if (ysparse) {
     Iry = mxGetIr(prhs[2]);
     Jcy = mxGetJc(prhs[2]);
     if (px>0)
       if (py>0) merge11s(z,x,y,xind,yind,p,mx,my,Iry,Jcy);
-      else      merge10s(z,x,y,xind,p,mx,my,Iry,Jcy);  
+      else      merge10s(z,x,y,xind,     p,mx,my,Iry,Jcy);  
     else
-      if (py>0) merge01s(z,x,y,yind,p,mx,my,Iry,Jcy); 
-      else      merge00s(z,x,y,p,mx,my,Iry,Jcy);
+      if (py>0) merge01s(z,x,y,     yind,p,mx,my,Iry,Jcy); 
+      else      merge00s(z,x,y,          p,mx,my,Iry,Jcy);
   }
   else {
     if (px>0)
       if (py>0) merge11(z,x,y,xind,yind,p,mx,my);
-      else      merge10(z,x,y,xind,p,mx,my);  
+      else      merge10(z,x,y,xind,     p,mx,my);  
     else
-      if (py>0) merge01(z,x,y,yind,p,mx,my); 
-      else      merge00(z,x,y,p,mx,my);
+      if (py>0) merge01(z,x,y,     yind,p,mx,my); 
+      else      merge00(z,x,y,          p,mx,my);
   }
-  if (px>0) mxFree(xind);
-  if (py>0) mxFree(yind);
+  
+  
+    // end = clock();
+    // printf("    %12.8e\n", ((double) (end - start)) / CLOCKS_PER_SEC);
+     
+  if (px>0 && getxind) mxFree(xind);
+  if (py>0 && getyind) mxFree(yind);
 }
 
 
