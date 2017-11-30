@@ -62,14 +62,23 @@ function rv=getmatchfunc(rv,parents)
     end
   end
   if usematch
-    rv.parameters=getcptm(parents);
+    try
+      rv.parameters=indexfunc(parents);
+    catch
+      evenspacing=false(1,dp);
+      for i=1:dp, 
+        diffp=diff(parents{i}); 
+        if max(abs(diffp-diffp(1)))<1e-14, evenspacing(i)=true; end
+      end
+      rv.parameters=getcptm(parents,evenspacing);
+    end
   else
     rv.parameters=getcptu(c0,c1);
   end
 
 % use these to avoid memory bug in Matlab anonymous functions
-function matchfunc=getcptm(s)
-  matchfunc=@(varargin)gridmatch(varargin,s);
+function matchfunc=getcptm(s,evenspacing)
+  matchfunc=@(varargin)gridmatch(varargin,s,evenspacing);
 
 function matchfunc=getcptu(c0,c1)
   if all(size(c1)==1) % a single parent
