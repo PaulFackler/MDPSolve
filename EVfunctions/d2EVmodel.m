@@ -15,18 +15,19 @@ function model=d2EVmodel(D,delta)
  Ia=find(ismember(D.types,'a'));
  If=find(ismember(D.types,'f'));
  
- model.X=rectgrid(D.values{Is},D.values{Ia});
+ model.X=rectgrid(D.values{Ia},D.values{Is});
  if nargin>1, model.d=delta; end
- model.svars=1:length(Is);
+ model.svars=length(Ia)+(1:length(Is));
  model.EV=true;
  parents=getparents(D);
- parents=parents(If);
- for i=1:length(If), parents{i}=matchindices(parents{i},[Is Ia]); end
+ fparents=parents(If);
+ for i=1:length(If), fparents{i}=matchindices(fparents{i},[Ia Is]); end
  cpts=cellfun(@(x)x.cpt,D.cpds(If),'UniformOutput',false);
- model.P=EVcreate(cpts,model.X,parents);
+ model.P=EVcreate(cpts,model.X,fparents);
  Iu=find(ismember(D.types,'u') | ismember(D.types,'r'));
  if D.cpds{Iu}.type=='f'
-   xi=dvalues(D,D.parents{Iu});
+   ii=matchindices(parents{Iu},[Ia Is]);
+   xi=dvalues(D,ii);
    model.R = D.cpds{Iu}.valfunc(xi{:});
  else
    model.R = D.values{Iu};
