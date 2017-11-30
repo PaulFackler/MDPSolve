@@ -1,11 +1,11 @@
-function results = multilogit(y,x,beta0,maxit,tol);
+function results = multilogit(y,x,beta0,maxit,tol,print)
 % PURPOSE: implements multinomial logistic regression
 % Pr(y_i=j) = exp(x_i'beta_j)/sum_l[exp(x_i'beta_l)]
 %   where:
 %   i    =   1,2,...,nobs
 %   j,l  = 0,1,2,...,ncat
 %-------------------------------------------------------------------------%
-% USAGE: results = logit(y,x,beta)
+% USAGE: results = logit(y,x,beta0,maxit,tol,print)
 % where: y = response variable vector (nobs x 1)
 %            the response variable should be coded sequentially from 0 to
 %            ncat, i.e., y in {0,1,2,...,ncat}
@@ -15,6 +15,7 @@ function results = multilogit(y,x,beta0,maxit,tol);
 %    beta0 = optional starting values for beta (nvar x ncat+1) (default=0)
 %    maxit = optional maximum number of iterations (default=100)
 %      tol = optional convergence tolerance (default=1e-6)
+%    print = 0/1 1 to print results of each iteration (default=0)
 %-------------------------------------------------------------------------%
 % RETURNS: a structure
 %        results.meth = 'multilogit'
@@ -63,22 +64,25 @@ function results = multilogit(y,x,beta0,maxit,tol);
 % written by:
 % Simon D. Woodcock
 % CISER / Economics
+% 201 Caldwell Hall
 % Cornell University
-% Ithaca, NY 
+% Ithaca, NY 14850
 % sdw9@cornell.edu
+%
+% modified Nov. 2017, Paul L. Fackler, paul_fackler@ncsu.edu
 
 %---------------------------------------------------------%
 %       ERROR CHECKING AND PRELIMINARY CALCULATIONS       %
 %---------------------------------------------------------%
 
 if nargin < 2, error('multilogit: wrong # of input arguments'); end;
-y = round(y(:)); [nobs cy]=size(y); [rx nvar]=size(x);
+y = round(y(:)); nobs=size(y,1); [rx, nvar]=size(x);
 
 if (rx~=nobs), error('multilogit: row dimensions of x and y must agree'); end;
 
 % initial calculations
 xstd = [1 std(x(:,2:nvar))];
-x = x ./ ( ones(nobs,1)*xstd );                           % standardize x
+x = x ./ ( ones(nobs,1)*xstd );                             % standardize x
 ymin = min(y);
 ymax = max(y);
 ncat = ymax - ymin;
@@ -90,7 +94,7 @@ d = d0(:,2:ncat+1);                                         % normalize beta_0 =
 if nargin < 3
     beta0 = zeros(nvar,ncat+1);
 else 
-    [a b] = size(beta0);
+    a = size(beta0,1);
     if a == 0
         beta0 = zeros(nvar,ncat+1);
     else for j = 1:ncat;
@@ -104,11 +108,12 @@ beta = beta0(:,2:ncat+1);
 % default max iterations and tolerance
 if nargin < 4 , maxit = 100; tol = 1e-6; end;
 if nargin < 5 , tol = 1e-6; end;
+if nargin < 6 , print=0;    end;
 
-if nargin > 6 , error('multilogit: wrong # of arguments'); end;
+if nargin > 7 , error('multilogit: wrong # of arguments'); end;
 
 % check nvar and ncat are consistently defined;
-[rbeta cbeta] = size(beta);
+[rbeta, cbeta] = size(beta);
 if nvar ~= rbeta
     error('multilogit: rows of beta and columns of x do not agree')
 end;
@@ -122,39 +127,28 @@ end;
 % MAXIMUM LIKELIHOOD ESTIMATION OF MULTINOMIAL LOGIT %
 %----------------------------------------------------%
 
-% likelihood and derivatives at starting values
-[P,lnL] = multilogit_lik(y,x,beta,d);
-[g H] = multilogit_deriv(x,d,P,nvar,ncat,nobs);
-
-iter=0;
-
-for j = 1:ncat % vectorize beta and gradient for newton-raphson update
-    f = (j-1)*nvar + 1;
-    l = j*nvar;
-    vb(f:l,1) = beta(:,j);
-    vg(f:l,1) = g(:,j);
-end;
+% index for block diagonal elements of Hessian
+vec=@(x)x(:);
+bdind=vec(repmat(reshape(1:nvar*ncat,nvar,ncat),nvar,1)) + ...
+      vec(repmat(nvar*ncat*(0:nvar*ncat-1),nvar,1));
+d_0 = (y == min(y));
 
 % newton-raphson update
-while (abs(vg'*(H\vg)/length(vg)) > tol) & (iter < maxit)
+iter=0;
+while iter < maxit
     iter = iter + 1;
-    betaold = beta;
-    vbold = vb;
-    vb = vbold - H\vg;
-    for j = 1:ncat                                   % de-vectorize updated beta for pass to multilogit_lik
-        f = (j-1)*nvar + 1;
-        l = j*nvar;
-        beta(:,j) = vb(f:l,1);
-    end;
-    [P,lnL] = multilogit_lik(y,x,beta,d);            % update P, lnL
-    [g H] = multilogit_deriv(x,d,P,nvar,ncat,nobs);  % update g,H
-    for j = 1:ncat;                                  % vectorize updated g for next N-R update
-        f = (j-1)*nvar + 1;
-        l = j*nvar;
-        vg(f:l,1) = g(:,j);
-    end;
-    disp(['iteration: ' num2str(iter)]);
-    disp(['log-likelihood: ' num2str(lnL)]);
+    [P,lnL] = multilogit_lik(y,x,beta,d,d_0);                   % update P, lnL
+    [g, H]  = multilogit_deriv(x,d,P,nobs,nvar,ncat,bdind);     % update g,H
+    Hg = H\g(:);
+    if abs(g(:)'*Hg/numel(g)) > tol
+      beta = beta - reshape(Hg,nvar,ncat);
+      if print
+        disp(['iteration: ' num2str(iter)]);
+        disp(['log-likelihood: ' num2str(lnL)]);
+      end
+    else
+      break; 
+    end
 end;
 
 %---------------------------------------------------------%
@@ -170,7 +164,9 @@ for j = 1:ncat
     l = j*nvar;
     results.beta_vec(f:l,1) = results.beta_mat(:,j);
 end;
+warning('off','MATLAB:illConditionedMatrix')
 results.covb = -inv(H)./kron(ones(ncat),(xstd'*xstd)); % restore original scale
+warning('on','MATLAB:illConditionedMatrix')
 stdb = sqrt(diag(results.covb));
 results.tstat_vec = results.beta_vec./stdb;
 for j = 1:ncat                                  
@@ -178,7 +174,7 @@ for j = 1:ncat
     l = j*nvar;
     results.tstat_mat(:,j) = results.tstat_vec(f:l,1);
 end;
-P_0 = ones(nobs,1) - sum(P')';
+P_0 = ones(nobs,1) - sum(P,2);
 results.yfit = [P_0 P];
 results.lik = lnL;
 results.cnvg = tol;
@@ -186,80 +182,67 @@ results.iter = iter;
 results.nobs = nobs;
 results.nvar = nvar;
 results.ncat = ncat;
-results.count = [nobs-sum(sum(d)') sum(d)];
+results.count = [nobs-sum(sum(d),2) sum(d)];
 results.y = y;
 
 % basic specification testing;
 p = results.count / nobs;
-lnLr = nobs*sum((p.*log(p))'); % restricted log-likelihood: intercepts only
+lnLr = nobs*sum((p.*log(p)),2); % restricted log-likelihood: intercepts only
 results.lratio = -2*(lnLr - results.lik);
 results.rsqr = 1 - (results.lik / lnLr); % McFadden pseudo-R^2
 
 
+function [P,lnL] = multilogit_lik(y,x,beta,d,d_0)
+% PURPOSE: Computes value of log likelihood function for multinomial logit regression
+e_xb = exp(x*beta);
+sum_e_xb1 = 1 + sum(e_xb,2);
+P=bsxfun(@rdivide,e_xb,sum_e_xb1);
+P_0 = 1 - sum(P,2);
+lnL = sum(d .* log(P)) + sum(d_0.*log(P_0));
 
 
 %---------------------------------------------------------%
 %     SUPPLEMENTARY FUNCTION FOR COMPUTING DERIVATIVES    %
 %---------------------------------------------------------%
-
-function [g,H] = multilogit_deriv(x,d,P,nvar,ncat,nobs);
-% PURPOSE: Computes gradient and Hessian of multinomial logit 
-% model
-% ---------------------------------------------------------
+function [g,H] = multilogit_deriv(x,d,P,nobs,nvar,ncat,bdind)
+% PURPOSE: Computes gradient and Hessian of multinomial logit model
+% -----------------------------------------------------------------
 % References: Greene (1997), p.914
 
-% written by:
-% Simon D. Woodcock
-% CISER / Economics
-% 201 Caldwell Hall
-% Cornell University
-% Ithaca, NY 14850
-% sdw9@cornell.edu
+% compute gradient matrix (nvar x ncat)
+g=x'*(d-P);
+
+% compute Hessian, which has (ncat)^2 blocks of size (nvar x nvar)
+xp=bsxfun(@times,x,reshape(P,[nobs 1 ncat]));
+xp=reshape(xp,[nobs nvar*ncat]); 
+H=xp'*xp;
+xp=x'*xp;
+% subtract off the ncat nvar x nvar blocks from the diagonal blocks
+H(bdind)=H(bdind)-xp(:);
+
+
+
+% alternative that is slower but possibly more transparent
+function [g,H] = multilogit_deriv2(x,d,P,nobs,nvar,ncat,bdind)
+% PURPOSE: Computes gradient and Hessian of multinomial logit model
+% -----------------------------------------------------------------
+% References: Greene (1997), p.914
 
 % compute gradient matrix (nvar x ncat)
-tmp = d - P;
-g = x'*tmp;
+g=x'*(d-P);
 
 % compute Hessian, which has (ncat)^2 blocks of size (nvar x nvar)
 % this algorithm builds each block individually, m&n are block indices
-H = zeros(nvar*ncat);
+pp=cell(1,ncat);
+for m=1:ncat,
+  pp{m}=bsxfun(@times,x,P(:,m)); 
+end
+H=cell(ncat,ncat);
 for m = 1:ncat; 
-    for n = 1:ncat;
-        fr = (m-1)*nvar + 1;
-        lr = m*nvar;
-        fc = (n-1)*nvar + 1;
-        lc = n*nvar;       
-        index = (n==m);
-        index = repmat(index,nobs,1);
-        H(fr:lr,fc:lc) = -( ( x.*( P(:,m)*ones(1,nvar) ) )' * ( x.*( (index-P(:,n))*ones(1,nvar) ) ) ) ;
+    H{m,m} = pp{m}'*(pp{m}-x)  ;
+    for n = m+1:ncat;
+      H{m,n} = pp{m}'*pp{n};
+      H{n,m} = H{m,n}'; 
     end;
 end;
-
-function [P,lnL] = multilogit_lik(y,x,beta,d);
-% PURPOSE: Computes value of log likelihood function for multinomial logit regression
-
-% written by:
-% Simon D. Woodcock
-% CISER / Economics
-% Cornell University
-% Ithaca, NY 
-% sdw9@cornell.edu
-
-[nvar ncat] = size(beta);
-[nobs junk] = size(x);
-xb = x*beta;
-e_xb = exp(xb);
-sum_e_xb = sum(e_xb');
-for j = 1:ncat
-    P(:,j) = e_xb(:,j) ./ (1 + sum_e_xb');
-end;
-P_0 = ones(nobs,1) - sum(P')';
-p = [P_0 P];
-d_0 = (y == min(y));
-d = [d_0 d];
-lnp = log(p);
-contribution = d .* lnp;
-c_0 = sum(y == 0);
-lnL = sum(sum(contribution'));
-
-
+H=cell2mat(H);
