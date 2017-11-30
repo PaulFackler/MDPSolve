@@ -38,22 +38,34 @@
 % For more information, see the Open Source Initiative OSI site:
 %   http://www.opensource.org/licenses/bsd-license.php
 
-function ind=gridmatch(X,x)
+function ind=gridmatch(X,x,evenspacing)
 if ~iscell(x), x={x}; end
 d=length(x);
+if nargin<3 || isempty(evenspacing)
+  evenspacing=false(1,d);
+else
+  if numel(evenspacing)==1, evenspacing=repmat(evenspacing,1,d); end
+end
 
 if iscell(X)
-  ind=getind(X{1},x{1});
+  ind=getind(X{1},x{1},evenspacing(1));
   for i=2:d
-    ind=ind*length(x{i})+getind(X{i},x{i});
+    ind=ind*length(x{i}) + getind(X{i},x{i},evenspacing(i));
   end
 else
-  ind=getind(X(:,1),x{1});
+  ind=getind(X(:,1),x{1},evenspacing(1));
   for i=2:d
-    ind=ind*length(x{i})+getind(X(:,i),x{i});
+    ind=ind*length(x{i})+getind(X(:,i),x{i},evenspacing(i));
   end
 end
 ind=ind+1; % convert to 1-base index
     
-function ind=getind(X,x)  
+function ind=getind(X,x,evenspacing)  
+if evenspacing 
+  ind=round((X-x(1))/(x(2)-x(1)));
+  %if any(x(1+ind)~=X)
+  %  error('oops')
+  %end
+else
   ind=lookup(x+[diff(x)/2;inf],X);
+end
