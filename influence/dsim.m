@@ -1,6 +1,6 @@
 % dsim Simulates variables in an Influence Diagram
 % USAGE
-%   [Y,z]=dsim(D,s0,T,A,pval,z);
+%   [Y,z]=dsim(D,s0,T,A,pval,z,keepall);
 % INPUTS
 %   D       : an influence diagram structure
 %   s0      : initial state values (1 x ns vector or reps x ns matrix)
@@ -171,7 +171,7 @@ for t=1:T
       end
     end
     if keepall(i)
-      Y{i}(:,t)=St{i};
+      Y{i}(:,t+1)=St{i};
       ii=match(i);
       if types{i}=='f' && t<T && keepall(ii)
         Y{ii}(:,t+1)=St{i};
