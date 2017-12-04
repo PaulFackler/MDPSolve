@@ -16,11 +16,15 @@
 %                    cpt        : conditional probability table
 %                    size       : the value n
 %                    order      : how CPT is organized
+%                    simfunc    : a function to generate random values from simple inputs
+%                    ztype      : type of input to simfunc (uniform, normal or integer)
 %                 (not all distributions use every field)  
 %
 % Available distributions:
 %   'f'        deterministic         handle to function of parents
 %   'c'        continuous variable   [lower bound;upper bound]
+%   'b01'      binary                success probability weights
+%   'bin'      binomial              success probability weights
 %   'd'        discrete              probability weights
 %   'logit'    logit                 logit parameters
 %   'i'        integer               [a;b] integer values on [a b] w/ equal weights
@@ -87,6 +91,8 @@ switch type
     rv=fdef(varargin{:});
   case 'v'
     rv=vdef(varargin{:});
+  case 'b01'
+    rv=b01def(varargin{:});
   case 'd'
     rv=ddef(varargin{:});
   case 'n'
@@ -103,8 +109,20 @@ switch type
     rv=rvint(varargin{1});
   case 'g'
     rv=namedcrv('g',2,[0,inf],varargin{:});
+    a=varargin{1}(1);  % shape parameter
+    s=varargin{1}(2);  % scale parameter
+    [~,v]=gammainvapprox([],a,s);
+    clear varargin a s
+    rv.simfunc=@(u) hermiteinterp(u,v{:});
+    rv.ztype='u';
   case 'b'
     rv=namedcrv('b',2,[0,1],varargin{:});
+    a=varargin{1}(1);  % shape parameter
+    b=varargin{1}(2);  % shape parameter
+    [~,v]=betainvapprox([],a,b);
+    clear varargin a b
+    rv.simfunc = @(u) hermiteinterp(u,v{:});
+    rv.ztype='u';
   case 'burr12'
     rv=namedcrv('burr12',2,[0,inf],varargin{:});
   case 'k'
@@ -267,6 +285,48 @@ switch order
 end
 rv=struct('type','d','parameters',params,'values',values,'cpt',cpt,'order',order,'size',n);
 
+% binary rv defined by a CPT
+function  rv=b01def(varargin)
+switch nargin
+  case 0
+    error('must pass at least one input for d type variable')
+  case 1
+    params=varargin{1};
+    order='l';
+  case 2
+    params=varargin{1};
+    order=varargin{2};
+  otherwise      
+    error('too many inputs for type b01')
+end
+values=[];
+if isnumeric(params) 
+  cpt=params;
+  params=[];
+  %if all(size(cpt)~=1)
+    %warning('parameters must be a vector')
+  %end
+  if any(cpt<0 | cpt>1)
+    warning('parameters must be on [0,1]')
+  end
+else
+  error('parameters must be a set of valid probabilities')
+end
+if isempty(order)
+  order='l';  
+end
+switch order
+  case {'l','r'}
+  otherwise
+    error('order indicator must be ''l'' or ''r''')  
+end
+c1=vec(cpt(1,:));
+simfunc=b01simfunc(c1);
+rv=struct('type','b01','parameters',params,'values',values,'cpt',cpt,'order',order,'size',2,'simfunc',simfunc,'ztype','u');
+
+function f=b01simfunc(c1)
+  f = @(z,ind) double(z(:)>c1(ind(:)));
+  
 function rv=logitdef(varargin)
 [params,values]=getinputs(1,varargin{:});
 n=size(params,1);

@@ -76,6 +76,7 @@ for i=1:length(stateind)
   statevals{i}=D.cpds{stateind(i)}.values;
 end
 fvars=find([types{:}]=='f');
+stateindexfunc=v2ifunc(statevals);
 
 % set up the simulation parameters for each variable
 % initializing the states, parameters and actions
@@ -84,7 +85,7 @@ fvars=find([types{:}]=='f');
 %   an action match(i) is the associted column of A
 %   a future state match(i) is the associated state variable
 match=zeros(1,d);     
-vartypes=zeros(1,d);  % 1 has no parents, 2 has parents
+vartypes=zeros(1,d);  % 1 has no parents, 2 has parents, 3 has rvsimfunc
 for i=1:d
   cpdi=cpds{i};
   if strcmp(cpdi.type,'d') && ~isempty(parents{i}) && isempty(cpdi.parameters)
@@ -112,7 +113,10 @@ for i=1:d
       else
         vartypes(i)=2;
       end
-      if types{i}=='f'
+      if isfield(cpds{i},'simfunc')
+        vartypes(i)=3;
+      end
+      if types{i}=='f'  % get the current state that matches the name of the future state
         match(i)=find(ismember(D.names,D.names{i}(1:end-1)));
       end
     case 'p'
@@ -147,7 +151,8 @@ end
 for t=1:T
   if ~isempty(stateind)
     if isnumeric(A)
-      ind=gridmatch(St(stateind),statevals); % get the index values of the states
+      %ind=gridmatch(St(stateind),statevals); % get the index values of the states
+      ind=stateindexfunc(St{stateind});
     else
       At=A([St{stateind}]);
     end
@@ -164,10 +169,22 @@ for t=1:T
       end
     case {'c','u','r','f','h'}
       switch vartypes(i)
-      case 1
+      case 1  % no parents
         [St{i},z{i}{t}]=rvgen(reps,cpds{i},[],z{i}{t});
-      case 2
+      case 2  % has parents
         [St{i},z{i}{t}]=rvgen(reps,cpds{i},St(parents{i}),z{i}{t});
+      case 3  % has simulation function
+        if isempty(z{i}{t}), 
+          switch cpds{i}.ztype
+          case 'u'
+            z{i}{t}=rand(reps,1); 
+          case 'n'
+            z{i}{t}=randn(reps,1); 
+          case 'i'
+            z{i}{t}=randn(reps,1); 
+          end
+        end
+        St{i}=cpds{i}.simfunc(z{i}{t},St{parents{i}});
       end
     end
     if keepall(i)
