@@ -1,12 +1,14 @@
-% LOOKUP  Performs a table lookup.
+% tablookup  Performs a table lookup
 % USAGE
-%   ind=lookup(tabvals,x,endadj);
+%   index=tablookup(tabvals,x,endadj);   returns index vector associated with x
+% or
+%   f=tablookup(tabvals,[],endadj);      returns function such that index=f(x)
 % INPUTS
 %   tabvals : a sorted vector of n values
 %   x       : an array of values
 %   endadj  : a optional endpoint adjustment: 0, 1, 2 or 3.
 % OUTPUT
-%   ind     : an array (same size as x) of indices from 1 to n
+%   index   : an array (same size as x) of indices from 1 to n
 %
 % Returns an array of size(x) with element (i,j) equal to
 %   max k: x(i,j)>=tabvals(k)
@@ -21,17 +23,16 @@
 %
 % With endadj=3 all the indices are between 1 and n-1
 % To find the nearest table value to each x use:
-%   ind = lookup(tabvals,x,3);
+%   ind = tablookup(tabvals,x,3);
 %   ind = ind + (x-tabvals(ind) > tabvals(ind+1)-x);
 %   nearest = tabvals(ind);
-%
-% Coded in C.
 
+% Design and documentation based on CompEcon LOOKUP function
 % Copyright (c) 1997-2000, Paul L. Fackler & Mario J. Miranda
 % paul_fackler@ncsu.edu, miranda.4@osu.edu
 
 % MDPSOLVE: MATLAB tools for solving Markov Decision Problems
-% Copyright (c) 2011, Paul L. Fackler (paul_fackler@ncsu.edu)
+% Copyright (c) 2011-2017, Paul L. Fackler (paul_fackler@ncsu.edu)
 % All rights reserved.
 % 
 % Redistribution and use in source and binary forms, with or without  
@@ -59,32 +60,27 @@
 % 
 % For more information, see the Open Source Initiative OSI site:
 %   http://www.opensource.org/licenses/bsd-license.php
-
-function ind=lookup(tabvals,x,endadj)
-
-if nargin<2
-  error('At least two parameters must be specified');
+function index=tablookup(tab,x,endadj)
+if nargin<3; endadj=0; end
+switch endadj
+  case 0 
+    tab=[tab;inf];
+  case 1  
+    tab(tab==tab(1))=-inf;
+    tab=[tab;inf];
+  case 2
+    tab(tab==tab(end))=inf;
+  case 3
+    tab(tab==tab(1))=-inf;
+    tab(tab==tab(end))=inf;
 end
-if nargin<3 ||isempty(endadj), endadj=0; end
 
-n=numel(x);
-if min(size(tabvals))>1
-  error('tabvals must be a vector');
-else 
-  tabvals=tabvals(:);
-  if any(diff(tabvals)<0)
-    error('tabvals must be sorted in ascending order')
-  end
+if isempty(x)
+  clear x endadj
+  index = @(x) tablookupf(x,tab);
+else
+  [~,index]=histc(x,tab);
 end
-m=length(tabvals);
-if endadj>=2, m=m-length(find(tabvals==tabvals(end))); end
 
-[temp,ind]=sort([tabvals(1:m); x(:)]);
-temp=find(ind>m);
-j=ind(temp)-m;
-ind=reshape(temp-(1:n)',size(x));
-ind(j)=ind(:);
-
-if endadj==1 || endadj==3
-  ind(ind==0)=length(find(tabvals==tabvals(1))); 
-end
+function index=tablookupf(x,tab)
+  [~,index]=histc(x,tab);
