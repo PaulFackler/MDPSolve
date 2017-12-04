@@ -116,6 +116,9 @@ for i=1:d
       if isfield(cpds{i},'simfunc')
         vartypes(i)=3;
       end
+      if isfield(cpds{i},'valfunc')
+        vartypes(i)=4;
+      end
       if types{i}=='f'  % get the current state that matches the name of the future state
         match(i)=find(ismember(D.names,D.names{i}(1:end-1)));
       end
@@ -185,6 +188,8 @@ for t=1:T
           end
         end
         St{i}=cpds{i}.simfunc(z{i}{t},St{parents{i}});
+      case 4  % has evaluation function
+        St{i}=cpds{i}.valfunc(St{parents{i}});
       end
     end
     if keepall(i)
