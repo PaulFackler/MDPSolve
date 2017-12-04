@@ -47,7 +47,7 @@ function B=getbas1(s,x,evenspacing)
     ind=fix((x-s(1)).*((n-1)./(s(end)-s(1))))+1;
     ind=min(max(ind,1),n-1)';
   else             % irregularly spaced s
-    ind=lookup(s,x,3)';   
+    ind=tablookup(s,x,3)';   
   end
   si=s(ind);
   z=((x-si)./(s(ind+1)-si))';

@@ -83,7 +83,7 @@ for i=1:dim
     hi=df(1);
     ind(:,i)=evenlookup(s{i},Si,hi);
   else
-    ind(:,i)=lookup(s{i},Si,3);
+    ind(:,i)=tablookup(s{i},Si,3);
     hi=s{i}(ind(:,i)+1)-s{i}(ind(:,i));
   end
   d(:,i)=(Si-s{i}(ind(:,i)))./hi;

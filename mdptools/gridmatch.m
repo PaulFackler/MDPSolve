@@ -63,9 +63,6 @@ ind=ind+1; % convert to 1-base index
 function ind=getind(X,x,evenspacing)  
 if evenspacing 
   ind=round((X-x(1))/(x(2)-x(1)));
-  %if any(x(1+ind)~=X)
-  %  error('oops')
-  %end
 else
-  ind=lookup(x+[diff(x)/2;inf],X);
+  ind=tablookup(x+[diff(x)/2;inf],X);
 end

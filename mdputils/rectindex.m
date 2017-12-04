@@ -46,9 +46,9 @@ if isnumeric(s)
   s={s};
 end
 d=length(s);
-ind=lookup(s{d},S(:,d));
+ind=tablookup(s{d},S(:,d));
 nn=size(s{d},1);
 for i=d-1:-1:1
-  ind=ind+(lookup(s{i},S(:,i))-1)*nn;
+  ind=ind+(tablookup(s{i},S(:,i))-1)*nn;
   nn=nn*size(s{i},1);
 end

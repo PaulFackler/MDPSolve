@@ -56,17 +56,17 @@ end
 
 % v2i function when X is passed as separate vectors
 function ind=v2ic(x,varargin)
-  ind = lookup(x{1},varargin{1});
+  ind = tablookup(x{1},varargin{1});
   for i=2:d
-    ind = ind*length(x{i}) + lookup(x{i},varargin{i});
+    ind = ind*length(x{i}) + tablookup(x{i},varargin{i});
   end
   ind=ind+1;
  
 % v2i function when X is passed as a single matrix
 function ind=v2im(x,X)
-  ind=lookup(x{1},X(:,1));
+  ind=tablookup(x{1},X(:,1));
   for i=2:d
-    ind = ind*length(x{i}) + lookup(x{i},X(:,i));
+    ind = ind*length(x{i}) + tablookup(x{i},X(:,i));
   end
   ind=ind+1;
 
