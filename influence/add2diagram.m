@@ -158,9 +158,16 @@ elseif isstruct(cpd)
   if ~isfield(cpd,'values') || isempty(cpd.values), D.values{n}=[]; 
   else                                              D.sizes(n)=length(cpd.values); D.values{n}=cpd.values;
   end
-  if strcmp(cpd.type,'d') && isempty(cpd.parameters) && ~isempty(parents)
+  if isfield(cpd,'simfunc') && ~isempty(parents)
     [~,pp]=ismember(parents,D.names);
-    D.cpds{end}=getmatchfunc(cpd,D.values(pp));
+    fc=v2ifunc(D.values(pp));
+    fs=@(z,varargin) cpd.simfunc(z,fc(varargin{:}));
+    D.cpds{end}.simfunc=fs;
+  else
+    if strcmp(cpd.type,'d') && isempty(cpd.parameters) && ~isempty(parents)
+      [~,pp]=ismember(parents,D.names);
+      D.cpds{end}=getmatchfunc(cpd,D.values(pp));
+    end
   end
 end
 
