@@ -23,9 +23,10 @@
 % Available distributions:
 %   'f'        deterministic         handle to function of parents
 %   'c'        continuous variable   [lower bound;upper bound]
+%   'd'        discrete              probability weights
 %   'b01'      binary                success probability weights
 %   'bin'      binomial              success probability weights
-%   'd'        discrete              probability weights
+%   'hypgeo'   hypergeometric        success probability weights
 %   'logit'    logit                 logit parameters
 %   'i'        integer               [a;b] integer values on [a b] w/ equal weights
 %   'u'        uniform               [a;b] range (with equal weights)
@@ -283,8 +284,10 @@ switch order
   otherwise
     error('order indicator must be ''lc'',''lr'',''rc'' or ''rr''')  
 end
-rv=struct('type','d','parameters',params,'values',values,'cpt',cpt,'order',order,'size',n);
+simfunc=randdiscf(cpt);
+rv=struct('type','d','parameters',params,'values',values,'cpt',cpt,'order',order,'size',n,'simfunc',simfunc,'ztype','u');
 
+  
 % binary rv defined by a CPT
 function  rv=b01def(varargin)
 switch nargin
@@ -303,10 +306,10 @@ values=[];
 if isnumeric(params) 
   cpt=params;
   params=[];
-  %if all(size(cpt)~=1)
-    %warning('parameters must be a vector')
-  %end
-  if any(cpt<0 | cpt>1)
+  if size(cpt,1)>2, 
+    error('parameter must be a matrix with 1 or 2 rows')
+  end
+  if any(cpt(:)<0 | cpt(:)>1)
     warning('parameters must be on [0,1]')
   end
 else
@@ -320,30 +323,50 @@ switch order
   otherwise
     error('order indicator must be ''l'' or ''r''')  
 end
-c1=vec(cpt(1,:));
-simfunc=b01simfunc(c1);
+
+if size(cpt,1)==1, 
+  cpt=[1-cpt;cpt];
+end
+p=cpt(1,:);
+if exist('b01simfuncc','file')
+  simfunc=@(u,ind) b01simfuncc(u,p,ind);
+else
+  simfunc=b01simfunc(p(:));
+end
 rv=struct('type','b01','parameters',params,'values',values,'cpt',cpt,'order',order,'size',2,'simfunc',simfunc,'ztype','u');
 
-function f=b01simfunc(c1)
-  f = @(z,ind) double(z(:)>c1(ind(:)));
+function f=b01simfunc(p)
+  f = @(u,ind) double(u(:)>p(ind(:)));
   
 function rv=logitdef(varargin)
 [params,values]=getinputs(1,varargin{:});
 n=size(params,1);
 if isempty(values)
-  values={1:n}';
+  values=(1:n)';
 else
   if size(values,1)~=n
     error('values vector not correctly specified for logit type variable')
   end
 end
-rv=struct('type','logit','parameters',params,'values',values,'size',n);
+simfunc=@(u,varargin) logitsimfunc(u,params,varargin);
+rv=struct('type','logit','parameters',params,'values',values,'size',n,'simfunc',simfunc,'ztype','u');
+
+function x=logitsimfunc(u,beta,varargin)
+q=length(u);  
+cpt=beta(:,1)*ones(1,q);
+for i=1:length(varargin)
+  cpt = cpt + beta(:,i+1)*varargin{i}';
+end
+cpt=normalize(exp(cpt));
+x=randdisc(cpt,u);
 
 function rv=bindef(varargin)
 [params,values]=getinputs(1,varargin{:});
 if length(values)==1
   n=values;
   values=(0:n)';
+elseif isnumeric(values)
+  n=max(values);
 else
   error('values field should be a scalar equal to the number of trials')
 end
@@ -351,28 +374,25 @@ if iscell(params)
   if length(params)==1
     N=n;
   elseif length(params)==2
-    N=params{2};
+    N=params{2}(:);
   else
     error('parameters incorrectly specified')
   end
-  p=params{1};
+  p=params{1}(:);
 elseif isnumeric(params)
-  if length(params)==1
-    N=n;
-  elseif length(params)==2
-    N=params(2);
-  else
-    error('parameters incorrectly specified')
-  end
-  p=params(1);
+  p=params(:);
+  N=n;
 elseif isa(params,'function_handle')
   error('parameters cannot be defined by a function')
 end
+if isempty(values), n=max(N); values=(0:n)'; end
 x=crectgrid(p,N,values);
 P=binprob(x{:});
-P=reshape(P,n+1,length(params)*length(N));
+P=reshape(P,n+1,length(p)*length(N));
 P(1,all(P==0,1))=1;
-rv=struct('type','d','parameters',params,'values',values,'cpt',P,'size',n+1);
+simfunc=randdiscf(P);
+rv=struct('type','d','parameters',[],'values',values,'cpt',P,'size',n+1,'simfunc',simfunc,'ztype','u');
+rv.parameters={p,N};
 
 function rv=hypgeodef(varargin)
 [params,values]=getinputs(1,varargin{:});
@@ -387,12 +407,16 @@ if length(params)==1
 else
   error('values field should be a scalar equal to the number of trials')
 end
-x=crectgrid((0:N)',(0:N)',values,values);
+x=crectgrid(N,(0:N)',values,values);
 P=hypergeometric(x{:});
-P=reshape(P,n+1,(N+1)^2*(n+1));
-P(1,all(P==0,1))=1;
-matchfunc=@(NN,KK,nn) NN+(KK+nn*(N+1))*(N+1)+1;
-rv=struct('type','d','parameters',params,'values',values,'cpt',P,'size',N+1,'matchfunc',matchfunc);
+N1=N+1;
+P=reshape(P,n+1,(n+1)*N1);
+%P(1,all(P==0,1))=1;
+f=randdiscf(P);
+% this includes many impossible combinations
+matchfunc=@(K,n) n + K*N1 + 1;
+simfunc=@(u,K,n) values(f(u,matchfunc(K,n)));
+rv=struct('type','d','parameters',params,'values',values,'cpt',P,'size',N+1,'simfunc',simfunc,'ztype','u');
 
 % integer valued with uniform weights  
 function rv=rvint(parameters) 
