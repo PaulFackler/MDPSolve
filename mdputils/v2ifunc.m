@@ -57,7 +57,7 @@ end
 % v2i function when X is passed as separate vectors
 function ind=v2ic(x,varargin)
   ind = tablookup(x{1},varargin{1});
-  for i=2:d
+  for i=2:length(x)
     ind = ind*length(x{i}) + tablookup(x{i},varargin{i});
   end
   ind=ind+1;
@@ -65,7 +65,7 @@ function ind=v2ic(x,varargin)
 % v2i function when X is passed as a single matrix
 function ind=v2im(x,X)
   ind=tablookup(x{1},X(:,1));
-  for i=2:d
+  for i=2:length(x)
     ind = ind*length(x{i}) + tablookup(x{i},X(:,i));
   end
   ind=ind+1;
@@ -88,23 +88,20 @@ function ind=v2im(x,X)
 %g={linspace(0,1,7)',linspace(1,10,10)'}; x=rectgrid(g); II=indexfunc(x); i1=randi(size(X,1),20,1); 
 %X=x(i1,:); XX=mat2cell(X,size(X,1),ones(1,size(X,2))); i2=II(XX{:}); isequal(i1,i2)
 function [Ic,Im]=indexfunc(x)
-if iscell(x)
-  x=rectgrid(x);
-end
-n=size(x,1);
-y=(1:n)';
-beta=[ones(n,1) x]\y;
+
+beta=ls(x);
 alpha=beta(1);
 beta=beta(2:end);
-e=y-round(alpha+x*beta);
-if any(e~=0)
-  error('I cannot be found');
+if all(cellfun(@(x)isequal(x,round(x)),x))
+  alpha=round(alpha); beta=round(beta);
+  clear n y e x
+  Ic=@(varargin) IfuncI(alpha,beta,varargin{:});
+  Im=@(X) alpha+X*beta;
+else
+  clear n y e x
+  Ic=@(varargin) Ifunc(alpha,beta,varargin{:});
+  Im=@(X) round(alpha+X*beta);
 end
-
-clear n y e x
-Ic=@(varargin) Ifunc(alpha,beta,varargin{:});
-Im=@(X) round(alpha+X*beta);
-
 
 function ival=Ifunc(alpha,beta,varargin)
 ival=alpha;
@@ -112,3 +109,44 @@ for i=1:length(beta)
   ival = ival + varargin{i}*beta(i);
 end
 ival=round(ival);
+
+function ival=IfuncI(alpha,beta,varargin)
+ival=alpha;
+for i=1:length(beta)
+  ival = ival + varargin{i}*beta(i);
+end
+
+function beta=ls(x)
+d=length(x);
+n=cellfun(@length,x);
+nx=prod(n);
+xx=zeros(d+1,d+1);
+xy=zeros(d+1,1);
+y=reshape(1:nx,fliplr(n(:)'));
+xx(1,1)=nx;
+xy(1)=sum(y(:));
+for i=1:d
+  temp=ones(1,d); temp(d-i+1)=n(i);
+  temp=bsxfun(@times,y,reshape(x{i},temp));
+  xy(i+1)=sum(temp(:));
+  xx(1,i+1)=nx/n(i)*sum(x{i});
+  xx(i+1,1)=xx(1,i+1);
+  xx(i+1,i+1)=nx/n(i)*(x{i}'*x{i});
+  for j=i+1:d
+    xx(i+1,j+1)=nx/n(i)/n(j)*sum(vec(x{i}*x{j}'));
+    xx(j+1,i+1)=xx(i+1,j+1);
+  end
+end
+beta=xx\xy;
+
+
+e=beta(1);
+for i=1:d
+  temp=repmat(x{i}',prod(n(i+1:end)),prod(n(1:i-1)));
+  e=e+temp(:)*beta(i+1);
+end
+e=y(:)-round(e);
+if any(e~=0)
+  error('index cannot be found');
+end
+
