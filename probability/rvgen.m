@@ -205,9 +205,9 @@ if ~isempty(parents)
 else
   cpt=exp(ones(n,1)*rv.parameters');
 end
-cpt=normalize(cpt);
+cpt=normalize(cpt');
 x=randdisc(cpt,z);
-if ~isempty(rv.values)
+if ~isempty(rv.values) && ~isequal(rv.values,(1:n)')
   x=rv.values(x);
 end
   
