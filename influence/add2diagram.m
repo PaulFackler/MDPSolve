@@ -161,7 +161,7 @@ elseif isstruct(cpd)
   if isfield(cpd,'simfunc') && ~isempty(parents)
     [~,pp]=ismember(parents,D.names);
     fc=v2ifunc(D.values(pp));
-    fs=@(z,varargin) cpd.simfunc(z,fc(varargin{:}));
+    fs=@(u,varargin) cpd.simfunc(u,fc(varargin{:}));
     D.cpds{end}.simfunc=fs;
   else
     if strcmp(cpd.type,'d') && isempty(cpd.parameters) && ~isempty(parents)
