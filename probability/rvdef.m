@@ -284,7 +284,7 @@ switch order
   otherwise
     error('order indicator must be ''lc'',''lr'',''rc'' or ''rr''')  
 end
-simfunc=randdiscf(cpt);
+simfunc=randdiscf(cpt,values);
 rv=struct('type','d','parameters',params,'values',values,'cpt',cpt,'order',order,'size',n,'simfunc',simfunc,'ztype','u');
 
   
