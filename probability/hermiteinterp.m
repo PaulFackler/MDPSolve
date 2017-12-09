@@ -35,14 +35,14 @@ end
 xx = xi; xx(1) = -inf; xx(end) = inf;  
 [~,ind] = histc(x,xx);
 
-lambda = (x-xi(ind))./dxi(ind);
+lambda = (x - xi(ind))./dxi(ind);
 
 if nargout>1
   a1 = a1(ind);
   a2 = a2(ind);
   a3 = a3(ind);
-  y  = ((a3.*lambda+a2).*lambda+a1).*lambda+yi(ind);
-  dy = ((3*a3.*lambda+2*a2).*lambda+a1)./dxi(ind);
+  y  = ((a3.*lambda + a2).*lambda + a1).*lambda + yi(ind);
+  dy = ((3*a3.*lambda + 2*a2).*lambda + a1)./dxi(ind);
 else
-  y  = ((a3(ind).*lambda+a2(ind)).*lambda+a1(ind)).*lambda+yi(ind);
+  y  = ((a3(ind).*lambda + a2(ind)).*lambda + a1(ind)).*lambda + yi(ind);
 end
