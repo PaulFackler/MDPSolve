@@ -27,6 +27,7 @@
 %                   mergevec=m results in a single transition matrix
 %   getoptord   : attempts to find optimal combination method
 %   getoptgroup : determines the optimal grouping for a given order
+%   penalty     : penalty for more factors
 %   nx          : sizes of the X variables (used to determine optimal grouping)
 %   expandall   : expands all of the CPTS to have nx columns
 %
@@ -230,7 +231,8 @@ ni=size(p{1},1);
 if ~extract
   y = reshape(v,length(v)/ni,ni) * p{1}; 
   for i=2:m
-    y=EVmergefunc(y,Iy{i},p{i},Ip{i});
+    %y=EVmergefunc(y,Iy{i},p{i},Ip{i});
+    y=indexedmult(y,Iy{i},p{i},Ip{i},false,usebsxfun);
   end
 else
   if useI && nIe>=size(p{1},2)
