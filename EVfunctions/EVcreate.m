@@ -122,7 +122,7 @@ end
 if isempty(mergevec) && getoptgroup
   pm=fliplr(cumprod(fliplr(pm)));
   if ~exist('yn','var') || isempty(yn)
-    [Ip,Iy,Jp,Jy,Xp,yn]=EVindices(X,parents,pn);
+    yn=EVgetyn(X,parents);
   end
   mergevec=EVoptgroups(pm,yn,options);
 end
@@ -270,6 +270,46 @@ else
   end
 end
 y=y(:);
+
+% EVgetyn gets the sizes of the cumulative combined parent variables
+% USAGE
+%   yn=EVgetyn(X,parents,pn);
+% INPUTS
+%   X       : matrix of state/action combinations
+%   parents : m-element cell array of conditioning variables (parents)
+%   pn      : m-vector of column sizes of the CPTs (optional to check compatibility)
+% OUTPUTS
+%   yn          : m-vector of # of columns in the output at each evaluation step 
+%
+% parents{i} contains the columns of X that condition the ith variable
+% Thus Xpi=unique(X(:,parents{i}),'rows') contains the unique elements of the
+%   conditioning variables that condition output variable i.
+% It must be the case that the number of rows in Xi matches the number 
+%   of columns in p{i}: size(Xpi,1)=np(i)
+  
+function yn=EVgetyn(X,parents)
+  m=length(parents);
+  parentscombined=cell(1,m);
+  parentscombined{1}=parents{1};
+  for i=2:m
+    parentscombined{i}=union(parentscombined{i-1},parents{i});
+  end
+  yn=zeros(1,m);
+  Xi=X;
+  for i=m:-1:2
+    yn(i)=size(Xi,1);
+    if ~isequal(parentscombined{i-1},parentscombined{i})
+      ind=matchindices(parentscombined{i-1},parentscombined{i});
+      [~,Xi]=getI(Xi,ind);
+    end
+  end
+  yn(1)=size(Xi,1);
+  
+    
+% matchindices Finds the values of ind1 that match those of ind0
+function ind=matchindices(ind0,ind1)
+  [~,ind]=ismember(ind0,ind1);
+  ind=ind(ind>0);
 
 
 
