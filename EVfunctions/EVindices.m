@@ -16,7 +16,9 @@
 % It must be the case that the number of rows in Xi matches the number 
 %   of columns in p{i}: size(Xpi,1)=np(i)
   
-function [Ip,Iy,Jp,Jy,Xp,yn]=EVindices(X,parents,pn)
+function [Ip,Iy,Jp,Jy,Xp,yn]=EVindices(X,parents,pn,options)
+  if nargin<4, options = []; end
+  if nargin<3, pn      = []; end
   ind64=1;
   m=length(parents);
   parentscombined=cell(1,m);
@@ -28,20 +30,25 @@ function [Ip,Iy,Jp,Jy,Xp,yn]=EVindices(X,parents,pn)
   Xp=cell(1,m);
   yn=zeros(1,m);
   Xi=X;
-  J=(1:size(X,1))';
+  if isempty(X)
+    sX=prod(options.nx);
+  else
+    sX=size(X,1);
+  end
+  J=(1:sX)';
   for i=m:-1:2
-    yn(i)=size(Xi,1);
+    yn(i)=sX;
     if isequal(parents{i},parentscombined{i})
       Ip{i}=[]; 
       Jp{i}=[];
       Xp{i}=Xi;
     else
       ind=matchindices(parents{i},parentscombined{i});
-      [Ip{i},Xp{i}]=getI(Xi,ind);
+      [Ip{i},Xp{i}]=getI(Xi,ind,options);
       Jp{i}=Ip{i}(J);
     end
     
-    if nargin>=3 && size(Xp{i},1)~=pn(i)
+    if ~isempty(pn) && size(Xp{i},1)~=pn(i)
       error(['parents{' num2str(i) '} is incompatible with p{' num2str(i) '}'])
     end
     if isequal(parentscombined{i-1},parentscombined{i})
@@ -49,13 +56,16 @@ function [Ip,Iy,Jp,Jy,Xp,yn]=EVindices(X,parents,pn)
       Jy{i}=[];
     else
       ind=matchindices(parentscombined{i-1},parentscombined{i});
-      [Iy{i},Xi]=getI(Xi,ind);
+      [Iy{i},Xi]=getI(Xi,ind,options);
       Jy{i}=Iy{i}(J);
       J=Jy{i};
     end
+    if isempty(X)
+      options.nx=options.nx(1:end-1);
+    end
   end
   ind=matchindices(parents{1},parentscombined{1});
-  [Ip{1},Xp{1}]=getI(Xi,ind);
+  [Ip{1},Xp{1}]=getI(Xi,ind,options);
   Jp{1}=Ip{1}(J);
   yn(1)=size(Xi,1);
   if ind64

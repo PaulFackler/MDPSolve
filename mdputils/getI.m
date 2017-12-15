@@ -2,18 +2,23 @@
 % USAGE
 %   [Ix,S]=getI(X,svars,S);
 % or
-%   [Ix,S]=getI(nx,svars,options);
+%   [Ix,S]=getI([],svars,options);
 % INPUTS
-%   X     : nx-row matrix of values of the state/actions combinations; 
-%              each row in a unique combination
-%   svars : columns of X associated with the states
-%   S     : ns x length(svars) matrix of state values
+%   X     : nx x p matrix of values of the variable values
+%   svars : q vector (q<=p) indicating thecolumns of X associated with the 
+%             target variables
+%   S     : ns x q matrix of values of the target variables
 %             if omitted an index is created for the unique rows of X(:,svars)
 % or
-%   nx      : a vector of positive integers representing the number of values in 
-%               each X variable
-%   svars   : elements of X associated with the svars index
 %   options : structure variable with valid fields:
+%               nx     - a vector of positive integers representing the number of 
+%                          values in each X variable
+%                          If this is passed then X must be defined as
+%                          a complete regular with prod(nx) values
+%               Xint   - X is composed of integers with X(:,i) composed of values 
+%                          from 0:nx(i); this allows a fast method to be used.
+%               maxX   - a vector composed of the maximal values of X; used with
+%                          the Xint option
 %               lexico - true for lexicographic order, false for reverse lexicographic
 %               scell  - second output returned as a grid cell array rather than a matrix
 %               type   - determines the data type of Ix. 
@@ -28,10 +33,32 @@
 %
 % Warning: if X does not contain at least one row for every value of S the
 %   indices might be incorrectly computed using only 2 inputs; if this is a 
-%   possability use 3 inputs.
+%   possability pass the complete S matrix or specify nx.
+%
+% getI uses one of three different methods for obtaining the index
+% 1) options.nx passed and (implicitly) X is a complete regular grid with prod(nx) 
+%      values such as would be created using rectgrid.
+%      This is the fastest method because it avoids the construction and sorting
+%      of the values matrices. Call this using
+%         options=struct('nx',nx); [Ix,S]=getI([],svars,options);
+%      The values of S returned are index values so S(i,j) is in {1,...,nx(1)}
+% 2) Xint=true. This method assumes that X(:,1) is composed of integer values on 
+%         {0,...,max(X(:,i))} (which could be on {1,...,max(X(:,i))}) 
+%      It can be called using
+%         options=struct('Xint',true); 
+%         [Ix,S]=getI(X,svars,options);
+%      or
+%         options=struct('Xint',true,'maxX',max(X,[],1)); 
+%         [Ix,S]=getI(X,svars,options);
+%      X need not be a complete regular grid. This method requires sorting 
+%         a single column of numbers.
+% 3) [Ix,S]=getI(X,svars);     Uses: [S,temp,Ix]=unique(X(:,svars),'rows') 
+%    [Ix,S]=getI(X,svars,S);   Uses: Ix=match(X(:,svars),S);
+%    These methods are far slower than the other methods as they require
+%      sorting or matching the values of each row of X(:,svars)
 
 % MDPSOLVE: MATLAB tools for solving Markov Decision Problems
-% Copyright (c) 2011, Paul L. Fackler (paul_fackler@ncsu.edu)
+% Copyright (c) 2011-2017, Paul L. Fackler (paul_fackler@ncsu.edu)
 % All rights reserved.
 % 
 % Redistribution and use in source and binary forms, with or without  
@@ -60,63 +87,125 @@
 % For more information, see the Open Source Initiative OSI site:
 %   http://www.opensource.org/licenses/bsd-license.php
 
-function [Ix,S]=getI(X,svars,S)
-% check if X might be a positive index vactor (i.e., might actually be nx)
-if isnumeric(X) && (all(size(X)>1) || any(X~=round(X)) || any(X<=0))
-  if nargin<3
-    [S,temp,Ix]=unique(X(:,svars),'rows'); %#ok<ASGLU>
-  else
-    Ix=match(X(:,svars),S);
-  end
-else % nx vector passed
-  nx=X; 
-  if nargin>2, options=S; end
-  lexico = true;    % lexicographic ordering is the default
-  type=-1;          % double is default data type
-  scell = false;    % if true X is returned as a grid cell array
-  if exist('options','var') && ~isempty(options)
-    if isfield(options,'lexico'),     lexico     = options.lexico;     end
-    if isfield(options,'type'),       type       = options.type;       end
-    if isfield(options,'scell'),      type       = options.scell;      end
-  end
-  if iscell(nx)
-    m=nx; 
-    nx=cellfun(@length,m);
-  end
-  m=prod(nx(svars));
-
-  % determine the data type of the index
-  switch type
-    case 8,  m=cast(m,'uint8');
-    case 16, m=cast(m,'uint16');
-    case 32, m=cast(m,'uint32');
-    case 64, m=cast(m,'uint64');
-    case 0
-      if     m>=2^32, m=cast(m,'uint64');
-      elseif m>=2^16, m=cast(m,'uint32');
-      elseif m>=2^8,  m=cast(m,'uint16');
-      else            m=cast(m,'uint8');
+%%
+function [Ix,S]=getI(X,svars,options)
+if nargin<3, options=[]; S=[];
+elseif isnumeric(options) && size(options,2)==length(svars)
+  S=options;
+  options=[];
+else
+  S=[];
+end
+nx     = [];      % sizes of X variables when X is a complete regular grid
+Xint   = false;   % X(:,i) is composed of integers on {0,...,max(X(:,i))}
+maxX   = [];      % max(X(:,i)); if omitted and Xint=true maxX will be calculated
+lexico = true;    % lexicographic ordering is the default
+type=-1;          % double is default data type
+scell = false;    % if true X is returned as a grid cell array
+if exist('options','var') && ~isempty(options)
+  if isfield(options,'nx'),         nx         = options.nx;         end
+  if isfield(options,'Xint'),       Xint       = options.Xint;       end
+  if isfield(options,'maxX'),       maxX       = options.maxX;       end
+  if isfield(options,'lexico'),     lexico     = options.lexico;     end
+  if isfield(options,'type'),       type       = options.type;       end
+  if isfield(options,'scell'),      type       = options.scell;      end
+end
+if ~isempty(nx),   method=1;
+elseif Xint==true, method=2;
+else               method=3;
+end
+switch method
+  case 3
+    if isempty(S)
+      if lexico
+        [S,temp,Ix]=unique(X(:,svars),'rows'); %#ok<ASGLU>
+      else
+        [S,temp,Ix]=unique(X(:,flipud(svars(:))),'rows'); %#ok<ASGLU>
+        S=fliplr(S);
       end
-    otherwise
-      m=double(m);
-  end
-  Ix=1:m;
+    else
+      Ix=match(X(:,svars),S);
+    end
+  case 2
+    S=X(:,svars);
+    if isempty(maxX)
+      maxX=max(S,[],1);
+    else
+      maxX=maxX(svars);
+    end
+    [Ix,Is]=sortrowsint(S,maxX,lexico);
+    if nargout>1, S=S(Is,:); end
+  case 1 % nx vector passed
+    if nargout>1
+      [Ix,S]=getInx(nx,svars,lexico,type,scell);
+    else
+      Ix=getInx(nx,svars,lexico,type);
+    end
+    return;
+end
+% for methods 2 & 3 adjust output as needed
+if type>=0, Ix=casttype(Ix,type); end
+if nargout>1 && scell,  S=num2cell(S,1); end
 
-  nn=ones(1,length(nx)); nn(svars)=nx(svars);
-  if lexico, nn = fliplr(nn); end
-  Ix=reshape(Ix,nn);
 
-  nn=nx; nn(svars)=1;
-  if lexico, nn = fliplr(nn); end
-  Ix=repmat(Ix,nn);
-  Ix=Ix(:);
+%% method 1
+% getI using an nx vector when X is a complete regular grid
+function [Ix,S]=getInx(nx,svars,lexico,type,scell)
+if iscell(nx)
+  m=nx; 
+  nx=cellfun(@length,m);
+end
+m=casttype(prod(nx(svars)),type); 
 
-  if nargout>1
-    S=cellfun(@(x) (1:x)',num2cell(nx(svars)),'UniformOutput',false); 
-    if ~scell 
-      if lexico, S=rectgrid(S);
-      else       S=fliplr(rectgrid(fliplr(S)));
-      end
+Ix=1:m;
+nn=ones(1,length(nx)); nn(svars)=nx(svars);
+if lexico, nn = fliplr(nn); end
+if length(nn)==1; nn=[nn 1]; end  % need to pad nn due to Matlab's requirements
+Ix=reshape(Ix,nn);
+nn=nx; nn(svars)=1;
+if lexico, nn = fliplr(nn); end
+Ix=repmat(Ix,nn);
+Ix=Ix(:);
+if nargout>1
+  S=cellfun(@(x) (1:x)',num2cell(nx(svars)),'UniformOutput',false); 
+  if ~scell 
+    if lexico, S=rectgrid(S);
+    else       S=fliplr(rectgrid(fliplr(S)));
     end
   end
 end
+
+
+%% method 2
+% integer valued X
+function [Ix,Is]=sortrowsint(X,maxX,lexico)
+if length(maxX)~=size(X,2)
+  error('maxX is not compatible with X')
+end
+maxX=maxX(:);
+if lexico
+  m=flipud(cumprod([1;flipud(maxX(2:end))+1]));   % lexicographic
+else
+  m=cumprod([1;maxX(1:end-1)+1]);                 % reverse lexicographic
+end
+y=X*m;
+[~,Is,Ix]=unique(y);
+
+
+%% utility function
+% cast a variable to a different data type
+function x=casttype(x,type)
+  switch type
+    case  8, x=cast(x,'uint8' );
+    case 16, x=cast(x,'uint16');
+    case 32, x=cast(x,'uint32');
+    case 64, x=cast(x,'uint64');
+    case 0
+      if     all(x>=2^32), x=cast(x,'uint64');
+      elseif all(x>=2^16), x=cast(x,'uint32');
+      elseif all(x>=2^8 ), x=cast(x,'uint16');
+      else                 x=cast(x,'uint8' );
+      end
+    otherwise
+      x=double(x);
+  end

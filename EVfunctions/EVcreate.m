@@ -72,7 +72,7 @@ m=length(parents);
 if ~isempty(mergevec) && sum(mergevec)~=m,
   error('mergevec is incorrectly specified - must sum to m')
 end
-if length(mergevec)==m, mergevec=[]; end  % no preprocessing needed
+%if length(mergevec)==m, mergevec=[]; end  % no preprocessing needed
 
 
 % check if order is correctly specified
@@ -112,9 +112,9 @@ if ~isempty(order)
   if isempty(mergevec) && ~getoptgroup
     if ~isempty(pn)
       pn=pn(order);
-      [Ip,Iy,Jp,Jy,Xp,yn]=EVindices(X,parents,pn); % performs checks on p
+      [Ip,Iy,Jp,Jy,Xp,yn]=EVindices(X,parents,pn,options); % performs checks on p
     else
-      [Ip,Iy,Jp,Jy,Xp,yn]=EVindices(X,parents);           % no checks
+      [Ip,Iy,Jp,Jy,Xp,yn]=EVindices(X,parents,[],options);           % no checks
     end
   end
 end
@@ -122,13 +122,13 @@ end
 if isempty(mergevec) && getoptgroup
   pm=fliplr(cumprod(fliplr(pm)));
   if ~exist('yn','var') || isempty(yn)
-    yn=EVgetyn(X,parents);
+    yn=EVgetyn(X,parents,options);
   end
   mergevec=EVoptgroups(pm,yn,options);
 end
 
 % combine CPTs as needed
-if ~isempty(mergevec)
+if ~isempty(mergevec) && length(mergevec)<length(parents)
   k = 0;
   m = length(mergevec);
   for i=1:m
@@ -137,7 +137,7 @@ if ~isempty(mergevec)
     %[p2{i},parents2{i}] = mergecpts2(p(ind),X,parents(ind));
     %tt=toc;
     %tic
-    [p{i},parents{i}] = mergecpts(p(ind),X,parents(ind));
+    [p{i},parents{i}] = mergecpts(p(ind),X,parents(ind),options);
     %disp(toc/tt)
     %if ~isequal(p{i},p2{i})
     %  error('oops')
@@ -146,7 +146,7 @@ if ~isempty(mergevec)
   end
   p = p(1:m);
   parents = parents(1:m);
-  [Ip,Iy,Jp,Jy,Xp,yn] = EVindices(X,parents); 
+  [Ip,Iy,Jp,Jy,Xp,yn] = EVindices(X,parents,[],options); 
 end
 
 % check if full transition matrix is used
@@ -160,9 +160,9 @@ end
 if ~exist('Ip','var') 
   if ~isempty(p)
     pn=cellfun(@(x)size(x,2),p);
-    [Ip,Iy,Jp,Jy,Xp,yn]=EVindices(X,parents,pn); % performs checks on p
+    [Ip,Iy,Jp,Jy,Xp,yn]=EVindices(X,parents,pn,options); % performs checks on p
   else
-    [Ip,Iy,Jp,Jy,Xp,yn]=EVindices(X,parents);    % no checks
+    [Ip,Iy,Jp,Jy,Xp,yn]=EVindices(X,parents,[],options);    % no checks
   end
 end
 
@@ -287,7 +287,7 @@ y=y(:);
 % It must be the case that the number of rows in Xi matches the number 
 %   of columns in p{i}: size(Xpi,1)=np(i)
   
-function yn=EVgetyn(X,parents)
+function yn=EVgetyn(X,parents,options)
   m=length(parents);
   parentscombined=cell(1,m);
   parentscombined{1}=parents{1};
@@ -300,7 +300,7 @@ function yn=EVgetyn(X,parents)
     yn(i)=size(Xi,1);
     if ~isequal(parentscombined{i-1},parentscombined{i})
       ind=matchindices(parentscombined{i-1},parentscombined{i});
-      [~,Xi]=getI(Xi,ind);
+      [~,Xi]=getI(Xi,ind,options);
     end
   end
   yn(1)=size(Xi,1);
