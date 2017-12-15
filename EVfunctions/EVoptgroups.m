@@ -2,7 +2,7 @@
 % USAGE
 %   [order,c]=EVoptgroups(p,m,options);
 % INPUTS
-%   p        : d-vector of cumulative factor sizes from i-d
+%   p       : d-vector of cumulative factor sizes from i-d
 %   m       : d-vector of sizes of common conditioning variables 1-i
 %   options : options structure
 %               penalty - penalizes more factors
