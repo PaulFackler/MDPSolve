@@ -39,7 +39,20 @@
 %     [EV,workspace]=EVcreate(p,X,parents,options);
 % and on subsequent calls use
 %     EV=EVcreate(p,workspace);
+%
+% EVcreate can also be called as EV=EVcreate(P) or as EV=EVcreate({EV0,EV1})
+% to facilitate defining an EV functions that does both full and indexed evaluations.
 function [EV,ws]=EVcreate(p,X,parents,options)
+if nargin==1 
+  ws=[];
+  if isnumeric(p)
+    EV=@(varargin) EVuseP(p,varargin{:});
+    return
+  elseif iscell(p) && length(p)==2
+    EV=@(varargin) EVcombine(p{1},p{2},varargin{:});
+    return
+  end
+end
 order=[];
 usebsxfun=false;
 useI=true;
@@ -202,6 +215,13 @@ if nargin==2
   y=P'*v;
 else
   y=P(:,Ix)'*v;
+end
+
+function y=EVcombine(EV0,EV1,v,Ix)
+if nargin==3
+  y=EV0(v);
+else
+  y=EV1(v,Ix);
 end
 
 % EVeval Evaluates an EV function using EVmergefunc
