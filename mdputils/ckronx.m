@@ -44,15 +44,15 @@ else                                  % b is a cell array
   if transpose
     for i=1:d
       m=numel(z)/n(i);
-      z=reshape(z,m,n(i))';
-      z=b{ind(i)}'*z;
+      z=reshape(z,m,n(i));
+      z=b{ind(i)}'*z';
       mm=mm*size(z,1);
     end
   else
     for i=1:d
       m=numel(z)/n(i);
-      z=reshape(z,m,n(i))';
-      z=b{ind(i)}*z;
+      z=reshape(z,m,n(i));
+      z=b{ind(i)}*z';
       mm=mm*size(z,1);
     end
   end
