@@ -151,21 +151,26 @@ if nargout>1 && scell,  S=num2cell(S,1); end
 %% method 1
 % getI using an nx vector when X is a complete regular grid
 function [Ix,S]=getInx(nx,svars,lexico,type,scell)
+
 if iscell(nx)
   m=nx; 
   nx=cellfun(@length,m);
 end
-m=casttype(prod(nx(svars)),type); 
+nx=casttype(nx,type); 
 
-Ix=1:m;
-nn=ones(1,length(nx)); nn(svars)=nx(svars);
-if lexico, nn = fliplr(nn); end
-if length(nn)==1; nn=[nn 1]; end  % need to pad nn due to Matlab's requirements
-Ix=reshape(Ix,nn);
-nn=nx; nn(svars)=1;
-if lexico, nn = fliplr(nn); end
-Ix=repmat(Ix,nn);
-Ix=Ix(:);
+% a function to produce the index for variable i
+exI = @(i) vec( repmat( 0:nx(i)-1, prod(nx(i+1:end)), prod(nx(1:i-1)) ) );
+d=length(svars);
+if lexico
+  Ix=exI(svars(1));
+  for i=2:d
+    Ix=Ix*nx(svars(i)) + exI(svars(i)) ;
+  end
+else
+  error('not implemented for reverse-lexicographic order')
+end
+Ix=Ix+1;
+
 if nargout>1
   S=cellfun(@(x) (1:x)',num2cell(nx(svars)),'UniformOutput',false); 
   if ~scell 
