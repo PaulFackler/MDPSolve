@@ -49,17 +49,25 @@ function C=kroncol(A,B)
 if nb~=na
   error('Matrices must have the same number of columns')
 end
+if ~(issparse(A) || issparse(B))
+   C=bsxfun(@times,reshape(A,[1 ma na]),reshape(B,[mb 1 nb]));
+   return
+end
 try
   C=A(ones(mb,1)*(1:ma),:).*B((1:mb)'*ones(1,ma),:);
 catch %#ok<CTCH>
-  if issparse(A) || issparse(B)
+  if 1 % 2 approaches - not clear which is better in terms of speed
     N=sum(sum(A~=0,1).*sum(B~=0,1));
     C=sparse([],[],[],ma*mb,na,N);
+    for j=1:na
+      cj=B(:,j)*A(:,j).';
+      C(:,j)=cj(:);
+    end
   else
-    C=zeros(ma*mb,na);
-  end
-  for j=1:na
-    cj=B(:,j)*A(:,j).';
-    C(:,j)=cj(:);
+    C=cell(1,na);
+    for j=1:na
+      C{j}=vec(B(:,j)*A(:,j).');
+    end
+    C=[C{:}];
   end
 end
