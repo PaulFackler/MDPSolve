@@ -139,8 +139,8 @@ while iter < maxit
     iter = iter + 1;
     [P,lnL] = multilogit_lik(y,x,beta,d,d_0);                   % update P, lnL
     [g, H]  = multilogit_deriv(x,d,P,nobs,nvar,ncat,bdind);     % update g,H
-    Hg = H\g(:);
-    if abs(g(:)'*Hg/numel(g)) > tol
+    Hg = H\g(:);                       % if H is singular this evaluates as NaN
+    if abs(g(:)'*Hg/numel(g)) > tol    % NaN > tol is evaluated as false        
       beta = beta - reshape(Hg,nvar,ncat);
       if print
         disp(['iteration: ' num2str(iter)]);
