@@ -9,27 +9,30 @@
 // clock_t start, end;
 
 /*
-% EVmergefuncm specialized indexed multiplication operation for use with EV functions
+% EVmergefuncW Specialized indexed multiplication operation for use with EV functions
+% Similar to EVmergefunc but allows a weighting vector to be used
 % USAGE
-%   z=EVmergefuncm(x,xind,y,yind);
+%   z=EVmergefuncmW(x,xind,y,yind,w);
 % INPUTS
 %   x    : mx x nx matrix
 %   xind : p-vector of uint32 values on [1,...,nx] (if empty nx must equal p)
 %   y    : my x ny matrix
 %   yind : p-vector of uint32 values on [1,...,ny] (if empty ny must equal p)
+%   w    : nw-vector of positive values summing to 1
 % OUTPUT
 %   z    : mx/my x p matrix
 %
 % mx/my must be an integer
+% p/nw must be an integer
 */
 
-// basic matrix-vector multiply b=A*x where A is m x n
-void matvecmult(double *b, double *A, double *x, mwSize m, mwSize n){
+// basic matrix-vector multiply b=w*A*x where A is m x n
+void matvecmult(double *b, double *A, double *x, mwSize m, mwSize n, double w){
   double *bi, *bend, xj, *xend;
   bend = b + m;
   xend = x + n;
   while (x < xend){
-    xj = *x++;
+    xj = w * *x++;
     //if (xj!=0) {
       bi=b;
       while (bi < bend) *bi++ += *A++ * xj;
@@ -40,14 +43,14 @@ void matvecmult(double *b, double *A, double *x, mwSize m, mwSize n){
   }
 }
 
-// basic matrix-vector multiply b=A*x where A is m x n
-void matvecmult2(double *b, double *A, double *x, size_t m, size_t n){
+// basic matrix-vector multiply b=A*x where A is m x n - uses dgemm
+void matvecmult2(double *b, double *A, double *x, size_t m, size_t n, double w){
 /* scalar values to use in dgemm */
   char *chn = "N";
   size_t ione=1;
   double done = 1.0, dzero = 0.0;
   /* Pass arguments to Fortran by reference */
-  dgemm(chn, chn, &m, &ione, &n, &done, A, &m, x, &n, &dzero, b, &m);
+  dgemm(chn, chn, &m, &ione, &n, &w, A, &m, x, &n, &done, b, &m);
 }
 
 // the indexcheck functions check index vectors for valid values and convert
@@ -104,140 +107,192 @@ mwSize i;
 
 // 4 versions of the basic operation which depend on whether x and y have
 // associated index vectors or whether every column is used
-void merge00(double *z, double *x, double *y, mwSize p, mwSize mx, mwSize my){
-  mwSize rx, i;
+void merge00w(double *z, double *x, double *y, mwSize p, mwSize mx, mwSize my, double *w, mwSize nw){
+  mwSize rx, i, iw;
+  double wi, *zi;
   rx = mx/my;
-  for (i=0; i<p; i++){
-    matvecmult(z, x, y, rx, my);
-    x += mx;
-    y += my;
-    z += rx;
+  p /= nw;
+  for (iw=0; iw<nw; iw++){
+    wi = *w++;
+    zi = z;
+    for (i=0; i<p; i++){
+      matvecmult(zi, x, y, rx, my, wi);
+      x += mx;
+      y += my;
+      zi += rx;
+    }
   }
 }
 
 
-void merge01(double *z, double *x, double *y, mwSize *yind,   
-             mwSize p, mwSize mx, mwSize my){
-  mwSize rx, i; 
+void merge01w(double *z, double *x, double *y, mwSize *yind,   
+             mwSize p, mwSize mx, mwSize my, double *w, mwSize nw){
+  mwSize rx, i, iw;
+  double wi, *zi;
   rx = mx/my;
   y -= my;    // convert to 1-base indexing
-  for (i=0; i<p; i++){
-    matvecmult(z, x, y+my*yind[i], rx, my);
-    x += mx;
-    z += rx;
+  p /= nw;
+  for (iw=0; iw<nw; iw++){
+    wi = *w++;
+    zi = z;
+    for (i=0; i<p; i++){
+      matvecmult(zi, x, y+my*yind[i], rx, my, wi);
+      x += mx;
+      zi += rx;
+    }
+    yind += p;
   }
 }
 
-void merge10(double *z, double *x, double *y, mwSize *xind,    
-             mwSize p, mwSize mx, mwSize my){
-  mwSize rx, i; 
+void merge10w(double *z, double *x, double *y, mwSize *xind,    
+             mwSize p, mwSize mx, mwSize my, double *w, mwSize nw){
+  mwSize rx, i, iw;
+  double wi, *zi;
   rx = mx/my;
   x -= mx;      // convert to 1-base indexing
-  for (i=0; i<p; i++){
-    matvecmult(z, x+mx*xind[i], y, rx, my);
-    y += my;
-    z += rx;
+  p /= nw;
+  for (iw=0; iw<nw; iw++){
+    wi = *w++;
+    zi = z;
+    for (i=0; i<p; i++){
+      matvecmult(zi, x+mx*xind[i], y, rx, my, wi);
+      y += my;
+      zi += rx;
+    }
+    xind += p;
   }
 }
 
-void merge11(double *z, double *x, double *y, mwSize *xind, mwSize *yind, 
-             mwSize p, mwSize mx, mwSize my){
-  mwSize rx, i; 
+void merge11w(double *z, double *x, double *y, mwSize *xind, mwSize *yind, 
+             mwSize p, mwSize mx, mwSize my, double *w, mwSize nw){
+  mwSize rx, i, iw;
+  double wi, *zi;
   rx = mx/my;
   x -= mx; y -= my;    // convert to 1-base indexing
-  for (i=0; i<p; i++){
-    matvecmult(z, x+mx*xind[i], y+my*yind[i], rx, my);
-    z += rx;
+  p /= nw;
+  for (iw=0; iw<nw; iw++){
+    wi = *w++;
+    zi = z;
+    for (i=0; i<p; i++){
+      matvecmult(zi, x+mx*xind[i], y+my*yind[i], rx, my, wi);
+      zi += rx;
+    }
+    xind += p;
+    yind += p;
   }
 }
 
 // 4 versions for sparse y (x is assumed to be full)
-void merge00s(double *z, double *x, double *y, 
-             mwSize p, mwSize mx, mwSize my, mwSize *Iry, mwSize *Jcy){
+void merge00sw(double *z, double *x, double *y, 
+             mwSize p, mwSize mx, mwSize my, mwSize *Iry, mwSize *Jcy, double *w, mwSize nw){
   double *xj, *xji, *yj, yji;
-  mwSize i, j, k, ij, nc, rx, *Iryj, Jcyij;  
+  mwSize i, j, k, ij, nc, rx, *Iryj, Jcyij, iw;
+  double wi, *zi;
   rx = mx/my;
-  for (j=0; j<p; ){
-    xj = x + mx*j;
-    Jcyij=Jcy[j++];
-    nc=Jcy[j]-Jcyij;
-    yj = y + Jcyij;
-    Iryj = Iry + Jcyij;
-    for (i=0; i<nc; i++) {
-      yji=yj[i];
-      ij = Iryj[i];
-      xji = xj + rx*ij;
-      for (k=0; k<rx; k++) z[k] += xji[k] * yji;
+  p /= nw;
+  for (iw=0; iw<nw; iw++){
+    wi = *w++;
+    zi = z;
+    for (j=0; j<p; ){
+      xj = x + mx*j;
+      Jcyij=Jcy[j++];
+      nc=Jcy[j]-Jcyij;
+      yj = y + Jcyij;
+      Iryj = Iry + Jcyij;
+      for (i=0; i<nc; i++) {
+        yji=yj[i] * wi;
+        ij = Iryj[i];
+        xji = xj + rx*ij;
+        for (k=0; k<rx; k++) zi[k] += xji[k] * yji;
+      }
+      zi += rx;
     }
-    z += rx;
   }
 }
 
-void merge10s(double *z, double *x, double *y, mwSize *xind,  
-             mwSize p, mwSize mx, mwSize my, mwSize *Iry, mwSize *Jcy){
+void merge10sw(double *z, double *x, double *y, mwSize *xind,  
+             mwSize p, mwSize mx, mwSize my, mwSize *Iry, mwSize *Jcy, double *w, mwSize nw){
   double *xj, *xji, *yj, yji;
-  mwSize i, j, k, ij, nc, rx, *Iryj, Jcyij;  
+  mwSize i, j, k, ij, nc, rx, *Iryj, Jcyij, iw;
+  double wi, *zi;
   rx = mx/my;
   x -= mx;  // convert to 1-base indexing
-  for (j=0; j<p; ){
-    xj = x + mx*xind[j];
-    Jcyij=Jcy[j++];
-    nc=Jcy[j]-Jcyij;
-    yj = y + Jcyij;
-    Iryj = Iry + Jcyij;
-    for (i=0; i<nc; i++) {
-      yji=yj[i];
-      ij = Iryj[i];
-      xji = xj + rx*ij;
-      for (k=0; k<rx; k++) z[k] += xji[k] * yji;
+  p /= nw;
+  for (iw=0; iw<nw; iw++){
+    wi = *w++;
+    zi = z;
+    for (j=0; j<p; ){
+      xj = x + mx*xind[j];
+      Jcyij=Jcy[j++];
+      nc=Jcy[j]-Jcyij;
+      yj = y + Jcyij;
+      Iryj = Iry + Jcyij;
+      for (i=0; i<nc; i++) {
+        yji=yj[i] * wi;
+        ij = Iryj[i];
+        xji = xj + rx*ij;
+        for (k=0; k<rx; k++) zi[k] += xji[k] * yji;
+      }
+      zi += rx;
     }
-    z += rx;
   }
 }
 
-void merge01s(double *z, double *x, double *y, mwSize *yind, 
-             mwSize p, mwSize mx, mwSize my, mwSize *Iry, mwSize *Jcy){
-  double *xj, *xji, *yj, yji;
+void merge01sw(double *z, double *x, double *y, mwSize *yind, 
+             mwSize p, mwSize mx, mwSize my, mwSize *Iry, mwSize *Jcy, double *w, mwSize nw){
+  double *xj, *xji, *yj, yji, iw;
+  double wi, *zi;
   mwSize i, j, k, ij, nc, rx, *Iryj, Jcyij;  
   rx = mx/my;
   Jcy -= 1; // convert to 1-base indexing
-  for (j=0; j<p; j++){
-    xj = x + mx*j;
-    ij = yind[j];
-    Jcyij=Jcy[ij++];
-    nc=Jcy[ij]-Jcyij;
-    yj = y + Jcyij;
-    Iryj = Iry + Jcyij;
-    for (i=0; i<nc; i++) {
-      yji=yj[i];
-      ij = Iryj[i];
-      xji = xj + rx*ij;
-      for (k=0; k<rx; k++) z[k] += xji[k] * yji;
+  p /= nw;
+  for (iw=0; iw<nw; iw++){
+    wi = *w++;
+    zi = z;
+    for (j=0; j<p; j++){
+      xj = x + mx*j;
+      ij = yind[j];
+      Jcyij=Jcy[ij++];
+      nc=Jcy[ij]-Jcyij;
+      yj = y + Jcyij;
+      Iryj = Iry + Jcyij;
+      for (i=0; i<nc; i++) {
+        yji=yj[i] * wi;
+        ij = Iryj[i];
+        xji = xj + rx*ij;
+        for (k=0; k<rx; k++) zi[k] += xji[k] * yji;
+      }
+      zi += rx;
     }
-    z += rx;
   }
 }
 
-void merge11s(double *z, double *x, double *y, mwSize *xind, mwSize *yind, 
-             mwSize p, mwSize mx, mwSize my, mwSize *Iry, mwSize *Jcy){
+void merge11sw(double *z, double *x, double *y, mwSize *xind, mwSize *yind, 
+             mwSize p, mwSize mx, mwSize my, mwSize *Iry, mwSize *Jcy, double *w, mwSize nw){
   double *xj, *xji, *yj, yji;
-  mwSize i, j, k, ij, nc, rx, *Iryj, Jcyij;  
+  mwSize i, j, k, ij, nc, rx, *Iryj, Jcyij, iw;
+  double wi, *zi;
   rx = mx/my;
   x -= mx; Jcy -= 1; // convert to 1-base indexing
-  for (j=0; j<p; j++){
-    xj = x + mx*xind[j];
-    ij = yind[j];
-    Jcyij=Jcy[ij++];
-    nc=Jcy[ij]-Jcyij;
-    yj = y + Jcyij;
-    Iryj = Iry + Jcyij;
-    for (i=0; i<nc; i++) {
-      yji=yj[i];
-      ij = Iryj[i];
-      xji = xj + rx*ij;
-      for (k=0; k<rx; k++) z[k] += xji[k] * yji;
+  p /= nw;
+  for (iw=0; iw<nw; iw++){
+    wi = *w++;
+    zi = z;
+    for (j=0; j<p; j++){
+      xj = x + mx*xind[j];
+      ij = yind[j];
+      Jcyij=Jcy[ij++];
+      nc=Jcy[ij]-Jcyij;
+      yj = y + Jcyij;
+      Iryj = Iry + Jcyij;
+      for (i=0; i<nc; i++) {
+        yji=yj[i] * wi;
+        ij = Iryj[i];
+        xji = xj + rx*ij;
+        for (k=0; k<rx; k++) zi[k] += xji[k] * yji;
+      }
+      zi += rx;
     }
-    z += rx;
   }
 }
 
@@ -246,15 +301,15 @@ void mexFunction(
    int nlhs, mxArray *plhs[],
    int nrhs, const mxArray *prhs[])
 {
-  double  *x, *y, *z;
+  double  *x, *y, *z, *w;
   void *xy;
   mwSize *xind, *yind, *Iry, *Jcy;
-  mwSize p, px, py, mx, my, nx, ny, i;
+  mwSize p, px, py, mx, my, nx, ny, i, nw;
   bool okay=true, ysparse;
   bool getxind=true, getyind=true;
   
   /* Error checking on inputs */  
-  if (nrhs>4 || nrhs<4) mexErrMsgTxt("Invalid number of input arguments");
+  if (nrhs>5 || nrhs<4) mexErrMsgTxt("Invalid number of input arguments");
   if (!mxIsDouble(prhs[0]))
       mexErrMsgTxt("Input 1 must be double");  
   if (!mxIsDouble(prhs[2]))
@@ -286,6 +341,14 @@ void mexFunction(
       mexErrMsgTxt("y has an incorrect # of columns");
   if (py>0 && py!=p)
       mexErrMsgTxt("yind has an incorrect # of elements");
+  
+  if (nrhs==5) {
+    nw=mxGetNumberOfElements(prhs[4]);
+    w=mxGetPr(prhs[4]);
+  }
+  else nw=1;
+  if ((p/nw)*nw!=p)
+     mexErrMsgTxt("yind has an incorrect # of elements relative to w");
 
   //start = clock();
   
@@ -341,7 +404,7 @@ void mexFunction(
   x    = mxGetPr(prhs[0]);
   y    = mxGetPr(prhs[2]);
   
-  plhs[0]=mxCreateDoubleMatrix(mx/my, p, mxREAL);
+  plhs[0]=mxCreateDoubleMatrix(mx/my, p/nw, mxREAL);
   z=mxGetPr(plhs[0]);
 
 
@@ -350,19 +413,19 @@ void mexFunction(
     Iry = mxGetIr(prhs[2]);
     Jcy = mxGetJc(prhs[2]);
     if (px>0)
-      if (py>0) merge11s(z,x,y,xind,yind,p,mx,my,Iry,Jcy);
-      else      merge10s(z,x,y,xind,     p,mx,my,Iry,Jcy);  
+      if (py>0) merge11sw(z,x,y,xind,yind,p,mx,my,Iry,Jcy,w,nw);
+      else      merge10sw(z,x,y,xind,     p,mx,my,Iry,Jcy,w,nw);  
     else
-      if (py>0) merge01s(z,x,y,     yind,p,mx,my,Iry,Jcy); 
-      else      merge00s(z,x,y,          p,mx,my,Iry,Jcy);
+      if (py>0) merge01sw(z,x,y,     yind,p,mx,my,Iry,Jcy,w,nw); 
+      else      merge00sw(z,x,y,          p,mx,my,Iry,Jcy,w,nw);
   }
   else {
     if (px>0)
-      if (py>0) merge11(z,x,y,xind,yind,p,mx,my);
-      else      merge10(z,x,y,xind,     p,mx,my);  
+      if (py>0) merge11w(z,x,y,xind,yind,p,mx,my,w,nw);
+      else      merge10w(z,x,y,xind,     p,mx,my,w,nw);  
     else
-      if (py>0) merge01(z,x,y,     yind,p,mx,my); 
-      else      merge00(z,x,y,          p,mx,my);
+      if (py>0) merge01w(z,x,y,     yind,p,mx,my,w,nw); 
+      else      merge00w(z,x,y,          p,mx,my,w,nw);
   }
   
   
