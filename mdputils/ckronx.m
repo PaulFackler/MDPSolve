@@ -164,20 +164,20 @@ end
 function C=forward(A,B,d,n,transpose)
   C=B';
   for i=1:d
-    C=reshape(C,numel(C)/n(i),n(i));
+    C=reshape(C,[],n(i));
     if transpose(i), C=A{i}'*C';
     else             C=A{i}*C';
     end
   end
-  C=reshape(C,numel(C)/size(B,2),size(B,2));
+  C=reshape(C,[],size(B,2));
     
     
 function C=backward(A,B,d,n,transpose)
   C=B;
   for i=d:-1:1
-    C=reshape(C,n(i),numel(C)/n(i));
+    C=reshape(C,n(i),[]);
     if transpose(i), C=C'*A{i};
     else             C=C'*A{i}';
     end
   end
-  C=reshape(C,size(B,2),numel(C)/size(B,2))';
+  C=reshape(C,size(B,2),[])';
