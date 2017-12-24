@@ -49,17 +49,19 @@
 %   http://www.opensource.org/licenses/bsd-license.php
 
 function [P,R]=getprMC(D,options)
-reps            = 0;    % use Monte Carlo to construct reward and transition
-                        % if reps>0 this is the # of replications to use
-chunk           = 1000; % chunk size for Monte Carlo approach
-outvars         = [];   % output varariables
-cleanup         = 0;    % used to handle extrapolation
-print           = 0;    % print level, 0: none, 1: moderate, 2: heavy
+reps            = 0;     % use Monte Carlo to construct reward and transition
+                         % if reps>0 this is the # of replications to use
+chunk           = 1000;  % chunk size for Monte Carlo approach
+outvars         = [];    % output varariables
+cleanup         = 0;     % used to handle extrapolation
+sparseout       = false; % default is full
+print           = 0;     % print level, 0: none, 1: moderate, 2: heavy
 if nargin>=2 && ~isempty(options)
   if isfield(options,'reps'),        reps=options.reps;               end
   if isfield(options,'chunk'),       chunk=options.chunk;             end
   if isfield(options,'outvars'),     outvars=options.outvars;         end
   if isfield(options,'cleanup'),     cleanup=options.cleanup;         end
+  if isfield(options,'sparseout'),   sparseout=options.sparseout;     end
   if isfield(options,'print'),       print=options.print;             end
 end
 % get information on the variables
@@ -143,14 +145,13 @@ for i=1:length(s)
   end
 end
 
-forcesparse=true;
-if ispc, 
+if ispc && ~sparseout 
   memstats=memory; 
   if memstats.MaxPossibleArrayBytes < ns*nx*8 
-    forcesparse=false; 
+    sparseout=true; 
   end
 end
-if forcesparse
+if sparseout
   P=sparse(ns,nx);
 else
   P=zeros(ns,nx);
