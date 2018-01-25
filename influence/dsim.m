@@ -75,6 +75,7 @@ if nargin<6, z=[]; end
 % controls which variables are stored for all periods 
 % (for others only the last period is kept)
 if nargin<7 || all(keepall), keepall=true(1,d); end  
+if isscalar(keepall), keepall=keepall & true(1,d); end
 
 % determines whether z is actually kept
 if nargout>1, keepz=true; else keepz=false; end  
@@ -214,6 +215,10 @@ for t=1:T
             zit=randn(reps,1); 
           case 'i'
             zit=randn(reps,1); 
+          end
+          % check for transformation function - used with discrete
+          if isfield(cpds{i},'u2z');
+            zit=cpds{i}.u2z(zit);
           end
         end
         if vartypes(i)==1               % no parents
