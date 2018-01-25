@@ -1,4 +1,9 @@
+#if !defined(_WIN32)
+#define dgemm dgemm_
+#endif
+
 #include "mex.h"
+#include "blas.h"
 #include <math.h>
 
 #ifdef old32
@@ -184,6 +189,31 @@ double *kronff(double *A, mwSize mA, mwSize nA,
   }
   return(C);
 }
+
+double *kronffdgemm(double *A, mwSize mA, mwSize nA, 
+               double *B, mwSize mB, mwSize nB, 
+               double *C)
+{
+  double *cptr;
+  mwIndex i, j;
+  /* scalar values to use in dgemm */
+  char *chn = "N";
+  size_t ione=1;
+  double done = 1.0, dzero = 0.0;
+  /* Pass arguments to Fortran by reference */
+  cptr=C;
+  /* This is not needed because mxCreateDoubleMatrix does this */
+  /*memset(C,0,mA*mB*nA*nB*sizeof(double));*/
+  for (i=0; i<nA; ++i){
+    for (j=0; j<ma; ++j){
+      dgemm(chn, chn, &m, &ione, &n, &w, A, &m, x, &n, &done, b, &m);
+      cptr += mB;
+    }
+    cptr += (nB-1)*mA*mB;
+  }
+  return(C);
+}
+
 
 void kronsf(double *A, mwIndex *cindA, mwIndex *rindA, mwSize mA, mwSize nA, 
             double *B,                                 mwSize mB, mwSize nB, 
