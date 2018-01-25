@@ -79,7 +79,11 @@ if isempty(x)
   clear x endadj
   index = @(x) tablookupf(x,tab);
 else
-  [~,index]=histc(x,tab);
+  if exist('histcounts','file')  % much improved version with linear time algorithm
+    [~,~,index]=histcounts(x,tab);
+  else
+    [~,index]=histc(x,tab);
+  end
 end
 
 function index=tablookupf(x,tab)
