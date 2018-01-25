@@ -229,7 +229,7 @@ void mexFunction(
       if (indpij==lastind+1) skip[i]=true;
       else                   skip[i]=false;
     }
-    // loop over the reamining n2 x values
+    // loop over the remaining n2 x values
     for (j=1; j<n2; j++){
       x = S+xind[j]*n;
       pxj = multinomial(x, n, Sji, Sii);
