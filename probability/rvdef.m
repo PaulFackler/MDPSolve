@@ -328,15 +328,23 @@ if size(cpt,1)==1,
   cpt=[1-cpt;cpt];
 end
 p=cpt(1,:);
-if exist('b01simfuncc','file')
-  simfunc=@(u,ind) b01simfuncc(u,p,ind);
+if length(p)==1
+  simfunc=b01simfunc1(p);
 else
-  simfunc=b01simfunc(p(:));
+  if exist('b01simfuncc','file')
+    simfunc=@(u,ind) b01simfuncc(u,p,ind);
+  else
+    simfunc=b01simfunc(p(:));
+  end
 end
 rv=struct('type','b01','parameters',params,'values',values,'cpt',cpt,'order',order,'size',2,'simfunc',simfunc,'ztype','u');
 
 function f=b01simfunc(p)
   f = @(u,ind) double(u(:)>p(ind(:)));
+  
+function f=b01simfunc1(p)
+  f = @(u) double(u(:)>p);
+  
   
 function rv=logitdef(varargin)
 [params,values]=getinputs(1,varargin{:});
@@ -357,7 +365,7 @@ cpt=beta(:,1)*ones(1,q);
 for i=1:length(varargin)
   cpt = cpt + beta(:,i+1)*varargin{i}';
 end
-cpt=normalize(exp(cpt));
+cpt=normalizeP(exp(cpt));
 x=randdisc(cpt,u);
 
 function rv=bindef(varargin)
