@@ -302,7 +302,7 @@ switch nargin
   otherwise      
     error('too many inputs for type b01')
 end
-values=[];
+values=[0;1];
 if isnumeric(params) 
   cpt=params;
   params=[];
