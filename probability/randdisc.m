@@ -47,7 +47,11 @@
 function x=randdisc(p,u,ind)
 if any(size(p)==1)
   cp=[0;cumsum(p(:))];
-  [~,x]=histc(u,cp);
+  if exist('histcounts','file')  % much improved version with linear time algorithm
+    [~,~,x]=histcounts(u,cp);
+  else
+    [~,x]=histc(u,cp);
+  end
   return
 else
   q=numel(u);
