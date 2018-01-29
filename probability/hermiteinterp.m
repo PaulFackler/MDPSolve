@@ -33,8 +33,11 @@ end
 
 % make endpoints -inf and inf to get index values
 xx = xi; xx(1) = -inf; xx(end) = inf;  
-[~,ind] = histc(x,xx);
-
+if exist('histcounts','file')  % much improved version with linear time algorithm
+  [~,~,ind]=histcounts(x,xx);
+else
+  [~,ind]=histc(x,xx);
+end
 lambda = (x - xi(ind))./dxi(ind);
 
 if nargout>1
