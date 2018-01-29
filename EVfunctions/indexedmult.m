@@ -1,5 +1,5 @@
-% indexedmult An indexed multiplcation of two arrays
-%   z=indexedmult(x,xind,y,yind,checks);
+% indexedmult An indexed multiplication of two arrays
+%   z=indexedmult(x,xind,y,yind,checks,alg,w);
 % INPUTS
 %   x      : m x n matrix
 %   xind   : length w index vector of values on 1,...,n
@@ -8,6 +8,11 @@
 %   checks : 0/1 check the correctness of the inputs
 %              set to 0 to avoid time consuming checks if inputs
 %              are known to be correct
+%   alg    : 0 - uses bsxfun
+%            1 - uses indexedmultc or indexedmultccW with loops in C
+%            2 - uses indexedmultc or indexedmultcW with dgemm
+%            3 - uses indexedmultc or indexedmultcW with dgemv [the default]
+%   w      : weighting vector for a weighted indexed multiplication
 % OUTPUT
 %   z      : m/p x w matrix
 %
@@ -17,22 +22,31 @@
 % Note that size checks are made on inputs (these checks are fast)
 % but user must ensure that 1<=xind(i)<=size(x,2) and 1<=yind(i)<=size(y,2)
 
-function z=indexedmult(x,xind,y,yind,checks,usebsxfun)
-if nargin<6 || isempty(usebsxfun), usebsxfun=false; end
-if nargin<5 || isempty(checks), checks=true; end
+function z=indexedmult(x,xind,y,yind,checks,alg,w)
+if nargin<7,                       w=[];            end
+if nargin<6 || isempty(alg),       alg=3;           end  % uses dgemv
+if nargin<5 || isempty(checks),    checks=true;     end
 % check compatibility of arrays and index vectors
 if checks, checkinputs(x,xind,y,yind); end
 
-if exist('EVmergefunc','file') || usebsxfun
-  z=EVmergefunc(x,uint64(xind),y,uint64(yind));
+if exist('indexedmultc','file') && alg>0
+  if isempty(w) 
+    z=indexedmultc(x,uint64(xind),y,uint64(yind),alg);
+  else
+    z=indexedmultcW(x,uint64(xind),y,uint64(yind),alg,w);
+  end
+    
 else
   ny=size(y,1);
   x=reshape(x,[size(x,1)/ny,ny,size(x,2)]);
   if ~isempty(xind), x=x(:,:,xind); end
   if ~isempty(yind), y=y(:,yind); end
   z=bsxfun(@times,x,reshape(y,[1 size(y)]));
+  z=squeeze(z);
+  if ~isempty(w)
+    z=reshape(reshape(z,[],numel(w))*w,size(y,1),[]);
+  end
 end
-z=squeeze(z);
 
 function checkinputs(x,xind,y,yind)
 if isempty(xind)
