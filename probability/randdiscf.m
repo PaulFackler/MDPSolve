@@ -42,27 +42,60 @@
 % For more information, see the Open Source Initiative OSI site:
 %   http://www.opensource.org/licenses/bsd-license.php
 
-function f=randdiscf(p)
+function f=randdiscf(p,values)
+if isequal(values,(1:length(values))')
+  usevalues=false;
+else
+  usevalues=true;
+end
 if any(size(p)==1)
   c=[0;cumsum(p(:))];
   clear p
-  f=@(u) randdisch1(u,c);
+  if exist('histcounts','file')  % much improved version with linear time algorithm
+    if usevalues
+      f=@(u) values(randdisch2(u,c));
+    else
+      f=@(u) randdisch2(u,c);
+	  end
+  else
+    if usevalues
+      f=@(u) values(randdisch1(u,c));
+    else
+      f=@(u) randdisch1(u,c);
+	  end    
+  end
 else
-  if size(p,1)==2  % separate method to handle binary rvs
-    p=p(2,:)';
-    f=@(u,ind)double(u<p(ind));
+  if size(p,1)==2 % separate method to handle binary rvs
+    p=p(1,:)';
+    if usevalues
+      f=@(u,ind) values(1+double(u>p(ind)));
+    else
+      f=@(u,ind) 1+double(u>p(ind));
+    end
   else
     if exist('randdindc','file') 
       p(end,:)=1;  % ensures that loop will stop
-      f=@(u,ind)randdindc(u,p,ind);
+      if usevalues
+        f=@(u,ind) values(randdindc(u,p,ind));
+      else
+        f=@(u,ind) randdindc(u,p,ind);
+      end
     else
       if 1  % same algorithm as randdindc (but many times slower)
         p(end,:)=1; % ensures that loop will stop
-        f=@(u,ind)randdisc(u,p,ind);
+        if usevalues
+          f=@(u,ind) values(randdisc(u,p,ind));
+        else
+          f=@(u,ind) randdisc(u,p,ind);
+        end
       else  % uses histc - does not appear to be as fast
         c=[zeros(1,size(p,2));cumsum(p,1)];
         c(end,:)=1;
-        f=@(u,ind)randdischi(u,c,ind);
+        if usevalues
+          f=@(u,ind) values(randdischi(u,c,ind));
+        else
+          f=@(u,ind) randdischi(u,c,ind);
+        end
       end
     end
   end
@@ -88,8 +121,10 @@ function x=randdisc(u,p,ind)
   % finds x(i) of c such that c(x(i-1)) <= u(i) < c(x(i))
   function x=randdisch1(u,c)
     [~,x]=histc(u,c);
- 
- 
+    
+  function x=randdisch2(u,c)
+    [~,~,x]=histcounts(u,c);
+
   % finds x(i) of c such that c(x(i-1),ind(i)) <= u(i) < c(x(i),ind(i)) 
   function x=randdischi(u,c,ind)
   q=length(u);
