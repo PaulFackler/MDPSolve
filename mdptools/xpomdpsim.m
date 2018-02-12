@@ -63,9 +63,13 @@
 
 function [Xvals,EX]=xpomdpsim(o0,u0,b0,T,P,X,indox,indux,Z,indoz,induz,Xb,Ixopt)
 rep=size(o0,1);
-if rep==0, rep=size(u0,1); end
-if rep==0, rep=size(b0,1); end
+if rep<=1, rep=size(u0,1); end
+if rep<=1, rep=size(b0,1); end
 nz=size(Z,1);
+
+if size(o0,1)==1; o0=repmat(o0,rep,1); end
+if size(u0,1)==1; u0=repmat(u0,rep,1); end
+if size(b0,1)==1; b0=repmat(b0,rep,1); end
 
 % column indices for actions and signals
 inda=1:size(X,2); inda(:,[indox indux])=[];   % columns of X with actions
