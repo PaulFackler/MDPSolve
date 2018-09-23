@@ -9,7 +9,7 @@
 %           a single input and calls EV1 if passed two inputs
 %
 % Example:
-%   P=normalize(rand(3,6));
+%   P=normalizeP(rand(3,6));
 %   EV0=@(V) P'*V; 
 %   EV1=@(V,I) P(:,I)'*V; 
 %   EV=EVcombine(EV0,EV1);
