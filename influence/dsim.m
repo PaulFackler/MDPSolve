@@ -90,8 +90,8 @@ np=0;           % # of parameter variables
 % the associated action. If A is numeric an index function
 % is created to map values of S to rows of the S matrix (nearest neighbor)
 % and the associated rows of A. 
+svars=find(ismember(types,'s'));
 if ~isempty(A)
-  svars=find(ismember(types,'s'));
   if isnumeric(A)
     statevals=cell(1,length(svars));
     for i=1:length(svars)
