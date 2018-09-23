@@ -11,7 +11,7 @@
 %                 the elements of A [default: 1:d]
 %   transpose : d-vectors of logicals: 1 to use the transpose of A(i) 
 %                 a scalar entry will be expanded to a d-vector [default: 0]
-%   reorder   : use optimal ordering of operations
+%   optorder  : use optimal ordering of operations
 %   forward   : 1 forces use of the forward algorithm, 0 forces the backward
 %   print     : print information about the operation
 % OUTPUTS  
@@ -23,18 +23,61 @@
 % A must be a vector cell array containing 2-D numerical arrays (matrices).
 % If A is a matrix the function returns A*B (or A'*B if transpose=1)
 %
-% Alternative input syntax (for backward compatability):
+% Example:
+%   m=[50 50]; n=[30 60]; 
+%   d=length(m);
+%   A=cell(1,d);
+%   for i=1:d, A{i}=randn(m(i),n(i)); end
+%   B=randn(prod(m),5);
+%   options=struct('transpose',ones(1,d));
+%   C=ckronx(A,B,options);
+%
+% Alternative input syntax (for backward compatibility):
 %   C=ckronx(A,B,ind,transpose);
+
+% MDPSOLVE: MATLAB tools for solving Markov Decision Problems
+% Copyright (c) 2018, Paul L. Fackler (paul_fackler@ncsu.edu)
+% All rights reserved.
+% 
+% Redistribution and use in source and binary forms, with or without  
+% modification, are permitted provided that the following conditions are met:
+% 
+%    * Redistributions of source code must retain the above copyright notice, 
+%        this list of conditions and the following disclaimer.
+%    * Redistributions in binary form must reproduce the above copyright notice, 
+%        this list of conditions and the following disclaimer in the 
+%        documentation and/or other materials provided with the distribution.
+%    * Neither the name of the North Carolina State University nor of Paul L. 
+%        Fackler may be used to endorse or promote products derived from this 
+%        software without specific prior written permission.
+% 
+% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" 
+% AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
+% IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
+% ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+% FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
+% DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+% SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER 
+% CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, 
+% OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+% OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+% 
+% For more information, see the Open Source Initiative OSI site:
+%   http://www.opensource.org/licenses/bsd-license.php
 
 % Adapted from the ckronx function in the CompEcon Toolbox
 %(c) 1997-2000, Paul L. Fackler & Mario J. Miranda
-% Modified in 2017 (c) by Paul L. Fackler
+% Modified in 2018 by Paul L. Fackler
 
 function [C,order]=ckronx(A,B,options,transpose)
 
-if nargin<2, error('At least two parameters must be passed'), end
-if ~exist('transpose','var'), transpose=false; end
-reorder=0;
+if nargin<2
+  error('At least two parameters must be passed')
+end
+if ~exist('transpose','var')
+  transpose=false; 
+end
+optorder=0;
 useforward=[];
 print=0;
 order=[];
@@ -68,42 +111,62 @@ else
     ind=1:d;       
     if isfield(options,'ind'),       ind=options.ind;              end  
     if isfield(options,'transpose'), transpose=options.transpose;  end   
-    if isfield(options,'reorder'),   reorder=options.reorder;      end   
+    if isfield(options,'optorder'),  optorder=options.optorder;    end   
     if isfield(options,'forward'),   useforward=options.forward;   end   
     if isfield(options,'print'),     print=options.print;          end           
   else
     ind=options;
   end
 end
-if length(transpose)==1, transpose=repmat(transpose,1,d); end
+if length(transpose)==1
+  transpose=repmat(transpose,1,d); 
+end
 A=A(ind);
 transpose=transpose(ind);
 m=zeros(1,d);  % # of rows (cols if transpose(i)=1)
 n=zeros(1,d);  % # of cols (rows if transpose(i)=1)
 q=zeros(1,d);  % # of non-zeros
 for i=1:d, 
-  if transpose(i), [n(i),m(i)]=size(A{i}); 
-  else             [m(i),n(i)]=size(A{i}); 
+  if transpose(i)
+    [n(i),m(i)]=size(A{i}); 
+  else
+    [m(i),n(i)]=size(A{i});
   end
-  if issparse(A{i}), q(i)=nnz(A{i}); 
-  else               q(i)=numel(A{i}); 
+  if issparse(A{i})
+    q(i)=nnz(A{i}); 
+  else
+    q(i)=numel(A{i});
   end
 end
 if prod(n)~=size(B,1)
   error('A and B are not conformable')
 end
+% handle single matrix case
 if d==1, 
-  if transpose(1), C=A{1}'*B; 
-  else             C=A{1}*B; 
+  if transpose(1)
+    C=A{1}'*B; 
+  else
+    C=A{1}*B;
   end
   return; 
 end
 
+% check if use of either forward or backward is forced
+if ~isempty(useforward)
+  if useforward~=0 % use forward approach
+    C=forward(A,B,d,n,transpose);
+  else  % use backward approach
+    C=backward(A,B,d,n,transpose);
+  end
+  return
+end
+  
+% check ordering costs
 cost=@(m,n,q)sum(q.*cumprod([1 m(1:end-1)]).*fliplr(cumprod([1 fliplr(n(2:end))])));
 fcost=cost(m,n,q);
 bcost=cost(n,m,q);
 
-if reorder
+if optorder
   [~,order]=sort((m-n)./q);
   gcost=cost(m(order),n(order),q(order));
   if gcost+prod(m)+prod(n) < min(fcost,bcost) 
@@ -136,7 +199,7 @@ if print
   fprintf('%25.0f\n',[fcost;bcost])
   disp('full Kronecker cost')
   fprintf('%25.0f\n',prod(q));
-  if ~reorder
+  if ~optorder
     [~,order]=sort((m-n)./q);
     gcost=cost(m(order),n(order),q(order));
     fprintf('order: '); fprintf('%1.0f ',order); fprintf('\n');
@@ -147,18 +210,10 @@ if print
     fprintf('%25.0f\n',[prod(n)*p; prod(m)*p]);
   end
 end
-if isempty(useforward)
-  if fcost<bcost || (fcost==bcost && all(~transpose)) % use forward approach
-    C=forward(A,B,d,n,transpose);
-  else  % use backward approach
-    C=backward(A,B,d,n,transpose);
-  end
-else
-  if useforward~=0 % use forward approach
-    C=forward(A,B,d,n,transpose);
-  else  % use backward approach
-    C=backward(A,B,d,n,transpose);
-  end
+if fcost<bcost || (fcost==bcost && all(~transpose)) % use forward approach
+  C=forward(A,B,d,n,transpose);
+else  % use backward approach
+  C=backward(A,B,d,n,transpose);
 end
 
 function C=forward(A,B,d,n,transpose)
