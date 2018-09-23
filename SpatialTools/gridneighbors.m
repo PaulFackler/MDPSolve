@@ -24,6 +24,7 @@
 %      3     6
 
 function [net,G,A]=gridneighbors(m,n)
+G=[];
 if     m==1, net=[(1:n-1)' (2:n)'];
 elseif n==1, net=[(1:m-1)' (2:m)'];
 else
