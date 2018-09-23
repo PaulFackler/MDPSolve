@@ -139,7 +139,11 @@ if getx
     case 'u'
       x=z;
     case 'v'
-      error('cannot simulate "v" type variables')
+      if rv.size==1
+        x=rv.values + zeros(n,1);
+      else
+        error('cannot simulate "v" type variables')
+      end
     otherwise
       fname=[rv.type 'gen'];
       x=feval(fname,n,rv,parents,z);
