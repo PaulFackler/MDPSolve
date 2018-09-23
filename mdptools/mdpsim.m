@@ -56,7 +56,7 @@ if nargin<4 || isempty(Ix)
   Ix=(1:size(P,1))'; 
 else
   if length(Ix)~=size(P,1)
-    error('P iand Ix are not compatible')
+    error('P and Ix are not compatible')
   end
   noIx=false;
 end
