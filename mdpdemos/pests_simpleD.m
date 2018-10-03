@@ -19,11 +19,13 @@
  
  S=[1;2;3];
  A=[0;1];
- 
- D=add2diagram([],'pest level', 's',1,S, {},[],[.3 .6]);
- D=add2diagram(D, 'treat',      'a',1,A, {},[],[.3 .4]);
- D=add2diagram(D, 'pest level+','f',1,S, {'treat','pest level'},[P1 P2],[.8 .6]);
- D=add2diagram(D, 'utility',    'r',1,[],{'treat','pest level'},reward,[.6 .4]);
+ X=rectgrid(A,S);
+ Stran=rvdef('d',[P1 P2],S);
+ %D=add2diagram(D,name,type,obs,parents,cpd,loc,attachments)
+ D=add2diagram([],'pest level', 's',1,{},S,[.3 .6]);
+ D=add2diagram(D, 'treat',      'a',1, {},A,[.3 .4]);
+ D=add2diagram(D, 'pest level+','f',1,{'treat','pest level'},Stran,[.8 .6]);
+ D=add2diagram(D, 'utility',    'r',1,{'treat','pest level'},reward,[.6 .4]);
  
  figure(1); clf
  drawdiagram(D)
@@ -36,5 +38,10 @@
  disp('Simple Pest Control Problem')
  disp('State, Optimal Control and Value')
  fprintf('%1i  %1i  %8.2f\n',[results.Xopt(:,[2 1]) results.v]')
-
-
+%%
+T=25;
+reps=50;
+s0=2+zeros(reps,1);
+keepall=1;
+Aopt=X(results.Ixopt,1);
+[Y,z]=dsim(D,s0,T,Aopt,[],[],keepall);
