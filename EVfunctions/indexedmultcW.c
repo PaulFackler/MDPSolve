@@ -1,5 +1,6 @@
 #if !defined(_WIN32)
 #define dgemm dgemm_
+#define dgemv dgemv_
 #endif
 
 #include "mex.h"
@@ -7,6 +8,13 @@
 #include <math.h>
 // #include <time.h>
 // clock_t start, end;
+
+
+//#define matvecmult matvecmult3
+typedef void (*function)(double *b, double *A, double *x, mwSize m, mwSize n, double w);
+function matvecmult;
+
+
 
 /*
 % EVmergefuncW Specialized indexed multiplication operation for use with EV functions
@@ -27,7 +35,7 @@
 */
 
 // basic matrix-vector multiply b=w*A*x where A is m x n
-void matvecmult(double *b, double *A, double *x, mwSize m, mwSize n, double w){
+void matvecmult1(double *b, double *A, double *x, mwSize m, mwSize n, double w){
   double *bi, *bend, xj, *xend;
   bend = b + m;
   xend = x + n;
@@ -51,6 +59,17 @@ void matvecmult2(double *b, double *A, double *x, size_t m, size_t n, double w){
   double done = 1.0, dzero = 0.0;
   /* Pass arguments to Fortran by reference */
   dgemm(chn, chn, &m, &ione, &n, &w, A, &m, x, &n, &done, b, &m);
+}
+
+
+// basic matrix-vector multiply b=A*x where A is m x n - uses dgemv
+void matvecmult3(double *b, double *A, double *x, size_t m, size_t n, double w){
+/* scalar values to use in dgemm */
+  char *chn = "N";
+  size_t ione=1;
+  double done = 1.0, dzero = 0.0;
+  /* Pass arguments to Fortran by reference */
+  dgemv(chn, &m, &n, &w, A, &m, x, &ione, &done, b, &ione);
 }
 
 // the indexcheck functions check index vectors for valid values and convert
@@ -305,11 +324,12 @@ void mexFunction(
   void *xy;
   mwSize *xind, *yind, *Iry, *Jcy;
   mwSize p, px, py, mx, my, nx, ny, i, nw;
+  int alg;
   bool okay=true, ysparse;
   bool getxind=true, getyind=true;
   
   /* Error checking on inputs */  
-  if (nrhs>5 || nrhs<4) mexErrMsgTxt("Invalid number of input arguments");
+  if (nrhs>6 || nrhs<4) mexErrMsgTxt("Invalid number of input arguments");
   if (!mxIsDouble(prhs[0]))
       mexErrMsgTxt("Input 1 must be double");  
   if (!mxIsDouble(prhs[2]))
@@ -342,9 +362,9 @@ void mexFunction(
   if (py>0 && py!=p)
       mexErrMsgTxt("yind has an incorrect # of elements");
   
-  if (nrhs==5) {
-    nw=mxGetNumberOfElements(prhs[4]);
-    w=mxGetPr(prhs[4]);
+  if (nrhs>5) {
+    nw=mxGetNumberOfElements(prhs[5]);
+    w=mxGetPr(prhs[5]);
   }
   else nw=1;
   if ((p/nw)*nw!=p)
@@ -406,7 +426,20 @@ void mexFunction(
   
   plhs[0]=mxCreateDoubleMatrix(mx/my, p/nw, mxREAL);
   z=mxGetPr(plhs[0]);
-
+  
+  
+  matvecmult = &matvecmult3;
+  if (nrhs>4){
+    alg = (int) *mxGetPr(prhs[4]);
+    switch (alg){
+      case 1:
+        matvecmult = &matvecmult1;
+        break;
+      case 2:
+        matvecmult = &matvecmult2;
+        break;
+    }
+  }
 
    //start = clock();
   if (ysparse) {
