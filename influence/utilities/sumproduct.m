@@ -2,11 +2,11 @@
 % USAGE
 %   [f,ordinfo,cost,Iexpand]=sumproduct(F,Fvars,n,rowlist,collist,options);
 % INPUTS
-%   F         : a cell array of m factors
-%   Fvars     : a 1xm cell array with indices of the variables in each factor
-%   n         : a d-vector with the sizes of each variable
-%   rowlist   : list of variables associated with rows of the output
-%   collist   : list of variables associated with columns of the output
+%   F       : a cell array of m factors
+%   Fvars   : a 1xm cell array with indices of the variables in each factor
+%   n       : a d-vector with the sizes of each variable
+%   rowlist : list of variables associated with rows of the output
+%   collist : list of variables associated with columns of the output
 %   options : structure variable with control options (described below)
 % OUTPUTS
 %   f       : the final factor, a prod(n(rowlist)) x prod(n(collist)) matrix
@@ -16,7 +16,7 @@
 %   cost    : total processing cost (number of multiply operations)
 %   Iexpand : if f has less columns than prod(n(collist)) then
 %               f should be calculated as f=f(:,Iexpand) 
-%             otherwise Ix is empty
+%             otherwise Iexpand is empty
 %             If Iexpand is not requested it is used prior to returning f
 %
 % Options:
@@ -28,11 +28,20 @@
 %   orderonly   : 1 to return order info and skip processing (f and Iexpand set to [])
 %   forcefull   : 0 use sparse factors
 %                 1 convert sparse factors to full
-% spthreshold   : number on [0,1] converts final factor to sparse if sparsity
+%   spthreshold : number on [0,1] converts final factor to sparse if sparsity
 %                   ratio is less than threshold
-% feasible      : logical vector set to 1 for elements of collist that
+%   feasible    : logical vector set to 1 for elements of collist that
 %                   should be retained
 %   print       : print level, 0: none, 1: moderate, 2: heavy
+%
+% F{i} is an array with prod(n(Fvars{i}) elements. Implicitly it is a d_i
+%   dimensional array (where d_i is the length of Fvars{i}) with n(Fvars{i}) 
+%   values in dimension i. In practice F{i} can have any number of dimensions 
+%   between 1 and d_i. Note that elements of F{i} are arranged in reverse
+%   lexicographic order. The result of this operation is always returned as
+%   a matrix with output indices ordered according to rowlist and collist.
+%   Any indices included in the Fvars vectors and not included rowlist or
+%   collist are summed out of the final result.
 
 % MDPSOLVE: MATLAB tools for solving Markov Decision Problems
 % Copyright (c) 2014, Paul L. Fackler (paul_fackler@ncsu.edu)
