@@ -23,8 +23,13 @@
 % mx/my must be an integer
 */
 
+//#define matvecmult matvecmult3
+typedef void (*function)(double *b, double *A, double *x, mwSize m, mwSize n);
+function matvecmult;
+
+
 // basic matrix-vector multiply b=A*x where A is m x n
-void matvecmult(double *b, double *A, double *x, mwSize m, mwSize n){
+void matvecmult1(double *b, double *A, double *x, mwSize m, mwSize n){
   double *bi, *bend, xj, *xend;
   bend = b + m;
   xend = x + n;
@@ -40,7 +45,7 @@ void matvecmult(double *b, double *A, double *x, mwSize m, mwSize n){
   }
 }
 
-// basic matrix-vector multiply b=A*x where A is m x n
+// basic matrix-vector multiply b=A*x where A is m x n - uses dgemm
 void matvecmult2(double *b, double *A, double *x, size_t m, size_t n){
 /* scalar values to use in dgemm */
   char *chn = "N";
@@ -48,6 +53,17 @@ void matvecmult2(double *b, double *A, double *x, size_t m, size_t n){
   double done = 1.0, dzero = 0.0;
   /* Pass arguments to Fortran by reference */
   dgemm(chn, chn, &m, &ione, &n, &done, A, &m, x, &n, &dzero, b, &m);
+}
+
+
+// basic matrix-vector multiply b=A*x where A is m x n - uses dgemv
+void matvecmult3(double *b, double *A, double *x, size_t m, size_t n){
+/* scalar values to use in dgemm */
+  char *chn = "N";
+  size_t ione=1;
+  double done = 1.0, dzero = 0.0;
+  /* Pass arguments to Fortran by reference */
+  dgemv(chn, &m, &n, &done, A, &m, x, &ione, &dzero, b, &ione);
 }
 
 // the indexcheck functions check index vectors for valid values and convert
@@ -250,11 +266,12 @@ void mexFunction(
   void *xy;
   mwSize *xind, *yind, *Iry, *Jcy;
   mwSize p, px, py, mx, my, nx, ny, i;
+  int alg;
   bool okay=true, ysparse;
   bool getxind=true, getyind=true;
   
   /* Error checking on inputs */  
-  if (nrhs>4 || nrhs<4) mexErrMsgTxt("Invalid number of input arguments");
+  if (nrhs>5 || nrhs<4) mexErrMsgTxt("Invalid number of input arguments");
   if (!mxIsDouble(prhs[0]))
       mexErrMsgTxt("Input 1 must be double");  
   if (!mxIsDouble(prhs[2]))
@@ -343,7 +360,19 @@ void mexFunction(
   
   plhs[0]=mxCreateDoubleMatrix(mx/my, p, mxREAL);
   z=mxGetPr(plhs[0]);
-
+  
+  matvecmult = &matvecmult3;
+  if (nrhs>4){
+    alg = (int) *mxGetPr(prhs[4]);
+    switch (alg){
+      case 1:
+        matvecmult = &matvecmult1;
+        break;
+      case 2:
+        matvecmult = &matvecmult2;
+        break;
+    }
+  }
 
    //start = clock();
   if (ysparse) {
