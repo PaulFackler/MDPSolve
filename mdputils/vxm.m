@@ -52,8 +52,9 @@ if overwrite
     M(ii,j)=v(ii).*xx;
   end
 else
-  m=numel(v); ind=1:m;
-  M=sparse(ind,ind,v,m,m)*M;
+  M=bsxfun(@times,v(:),M);
+  %m=numel(v); ind=1:m;
+  %M=sparse(ind,ind,v,m,m)*M;
 end
 
 
