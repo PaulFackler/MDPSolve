@@ -98,6 +98,10 @@ switch type
     rv=ddef(varargin{:});
   case 'n'
     rv=namedcrv('n',2,[-inf,inf],varargin{:});
+    mu = rv.parameters(1);
+    sigma = rv.parameters(2);
+    rv.simfunc=@(z) z*sigma + mu;
+    rv.ztype='n';
   case 'ne'
     rv=namedcrv('ne',2,[-inf,inf],varargin{:});
   case {'u','ug'}
