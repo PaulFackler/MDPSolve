@@ -1,4 +1,4 @@
-% v2ifunc Return a function to find the index of the nearest neighbor on a grid
+% v2ifunc Returns a function to find the index of the nearest neighbor on a grid
 % USAGE
 %   [fc,fm]=v2ifunc(x);
 % INPUTS
