@@ -7,12 +7,12 @@
 %  x0     : an initial sorted vector of input values (contains the desired endpoints)
 %  opts   : an options structure (described below)
 % OUPUT
-%  v      : 3-cell array of results containing {y f^-1(y) df^-1(y/dy)}
+%  v      : cell array of results containing {y f^-1(y) df^-1(y/dy)}
 %             sorted by y
 %  stats  : number of failed steps (steps less than min size allowed)
 %
 % The function can be interpolated using
-%   x = hermiteinterp(v,y);
+%   x = hermiteinterp(y,v);
 % 
 % opts can contain the following fields  
 %   tol   : the absolute error tolerance for the fitted values
