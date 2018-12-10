@@ -112,11 +112,18 @@ if exist('options','var') && ~isempty(options)
 end
 if ~isempty(nx),   method=1;
 elseif Xint==true, method=2;
+elseif iscell(X),
+  nx = cellfun(@(x)size(x,1),X); method = 1; scell = true;
 else               method=3;
 end
 switch method
   case 3
     if isempty(S)
+      if isempty(svars)
+        S=1;
+        Ix=ones(size(X,1),1);
+        return
+      end
       if lexico
         [S,temp,Ix]=unique(X(:,svars),'rows'); %#ok<ASGLU>
       else
@@ -138,6 +145,9 @@ switch method
   case 1 % nx vector passed
     if nargout>1
       [Ix,S]=getInx(nx,svars,lexico,type,scell);
+      if iscell(X)
+        S=X(svars);
+      end
     else
       Ix=getInx(nx,svars,lexico,type);
     end
@@ -157,6 +167,12 @@ if iscell(nx)
   nx=cellfun(@length,m);
 end
 nx=casttype(nx,type); 
+
+if isempty(svars)
+  Ix=ones(prod(nx),1);
+  S=1;
+  return
+end
 
 % a function to produce the index for variable i
 exI = @(i) vec( repmat( 0:nx(i)-1, prod(nx(i+1:end)), prod(nx(1:i-1)) ) );
