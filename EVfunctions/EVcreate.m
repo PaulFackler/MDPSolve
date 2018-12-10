@@ -1,10 +1,11 @@
 % EVcreate Creates an EV function from conditional probabilities
 % USAGE
-%   EV=EVcreate(p,X,parents,options);
+%   [EV,workspace]=EVcreate(p,parents,X,e,options);
 % INPUTS
 %   p       : m-element cell array of conditional probability matrices
-%   X       : matrix of state/action combinations
-%   parents : m-element cell array of conditioning variables (parents)
+%   parents : m-element cell array of conditioning variable (parent) indices
+%   X       : matrix or cell array of state/action variables
+%   e       : cell array of rv structures (discrete or w/ discrete approximations)
 %   options : structure variable (fields described below)
 % OUTPUTS
 %   EV        : a function handle for an EV function
@@ -17,17 +18,18 @@
 %   of columns in p{i}: size(Xi,1)=size(p{i},2)
 %
 % Options fields:
-%   order       : m-vector if alternative order of operation
-%   usebsxfun   : forces the use of bsxfun rather than EVmergefunc
-%   useI        : if 0 uses J indexing from the beginning
-%   vreorder    : reordering vector for v (ignored if order option is defined)
+%   order       : m-vector if alternative variable order is desired
+%   getoptord   : attempts to find optimal combination method
 %   mergevec    : vector providing merge information with sum(mergevec)=m
 %                   An EV function is created with length(mergevec) components
 %                   The default is ones(1,m), i.e., one component for each variable
 %                   mergevec=m results in a single transition matrix
-%   getoptord   : attempts to find optimal combination method
-%   getoptgroup : determines the optimal grouping for a given order
-%   penalty     : penalty for more factors
+%                   Pass as empty to avoid using the optimal grouping (same
+%                     as a vector of 1s)
+%
+%   useI        : if 0 uses J indexing from the beginning
+%   alg         : the algorithm used by indexedmult 
+%   vreorder    : reordering vector for v (ignored if order option is defined)
 %   nx          : sizes of the X variables (used to determine optimal grouping)
 %   expandall   : expands all of the CPTS to have nx columns
 %
@@ -36,48 +38,42 @@
 %
 % If EVcreate is called multiple times using different values of p but with
 %   no change to X, parents or options, then call it the first time using
-%     [EV,workspace]=EVcreate(p,X,parents,options);
+%     [EV,workspace]=EVcreate(p,parents,X,e,options);
 % and on subsequent calls use
 %     EV=EVcreate(p,workspace);
-%
-% EVcreate can also be called as EV=EVcreate(P) or as EV=EVcreate({EV0,EV1})
-% to facilitate defining an EV functions that does both full and indexed evaluations.
-function [EV,ws]=EVcreate(p,X,parents,options)
-if nargin==1 
-  ws=[];
-  if isnumeric(p)
-    EV=@(varargin) EVuseP(p,varargin{:});
-    return
-  elseif iscell(p) && length(p)==2
-    EV=@(varargin) EVcombine(p{1},p{2},varargin{:});
-    return
-  end
-end
+function [EV,ws]=EVcreate(p,parents,X,e,options)
+if nargin<4, e={}; end
+if nargin<5, options=[]; end
 order=[];
-usebsxfun=false;
-useI=true;
-vreorder=[];
 getoptord=false;
-mergevec=[];
+getoptgroup=true;
+mergevec=ones(1,length(p));  % default is no merging
 pm=[];
 nx=[];
 expandall=false;
-getoptgroup=true;
+alg=[];
+useI=true;
+vreorder=[];
 ws=[];
+Ionly = false; 
 if exist('options','var') && ~isempty(options)
-  if isfield(options,'order'),       order       = options.order;       end
-  if isfield(options,'usebsxfun'),   usebsxfun   = options.usebsxfun;   end
-  if isfield(options,'useI'),        useI        = options.useI;        end
   if isfield(options,'getoptord'),   getoptord   = options.getoptord;   end
-  if isfield(options,'vreorder'),    vreorder    = options.vreorder;    end
   if isfield(options,'mergevec'),    mergevec    = options.mergevec;    end
-  if isfield(options,'getoptgroup'), getoptgroup = options.getoptgroup; end
   if isfield(options,'pm'),          pm          = options.pm;          end
   if isfield(options,'nx'),          nx          = options.nx;          end
   if isfield(options,'expandall'),   expandall   = options.expandall;   end
+  if isfield(options,'vreorder'),    vreorder    = options.vreorder;    end
+  if isfield(options,'order'),       order       = options.order;       end
+  if isfield(options,'usebsxfun'),   alg         = options.alg;         end
+  if isfield(options,'useI'),        useI        = options.useI;        end
+  if isfield(options,'Ionly'),       Ionly       = options.Ionly;       end
   if isfield(options,'workspace'),   ws          = options.workspace;   end
-else
-  options=[];
+end
+
+% if mergevec defined in options as empty then then no grouping will
+% be performed
+if exist('mergevec','var')
+  if isempty(mergevec), getoptgroup=false; end
 end
 
 m=length(parents);
@@ -85,148 +81,293 @@ m=length(parents);
 if ~isempty(mergevec) && sum(mergevec)~=m,
   error('mergevec is incorrectly specified - must sum to m')
 end
-%if length(mergevec)==m, mergevec=[]; end  % no preprocessing needed
 
-
-% check if order is correctly specified
-if ~isempty(order)
-  if length(order)~=m
-    error(['options.order must be an ' num2str(m) '-vector']);
-  end
-  if ~isequal(1:m,sort(order(:))')
-    error(['options.order must be a permutation of 1:' num2str(m)]);
-  end
-  if isequal(1:m,order(:)')
-    order=[];  % no reordering needed
-  end
-end
-
-if ~isempty(ws) 
-  [Ip,Iy,Jp,Jy,Xp,yn,vreorder,mergevec]=unpackworkspace(ws);
-end 
-
-% get CPT sizes
-if ~isempty(p)
-  [pm,pn]=cellfun(@size,p);
-else
-  pn=[];
-end
-
-if getoptord
-  [order,mergevec]=EVoptorder(p,X,parents,nx,options); 
-  getoptgroup=false;
-end
-% reorder
-if ~isempty(order)
-  % create an index to reorder v
-  vreorder=shuffleindex(pm,order,1);
-  p=p(order);
-  parents=parents(order);
-  if isempty(mergevec) && ~getoptgroup
-    if ~isempty(pn)
-      pn=pn(order);
-      [Ip,Iy,Jp,Jy,Xp,yn]=EVindices(X,parents,pn,options); % performs checks on p
-    else
-      [Ip,Iy,Jp,Jy,Xp,yn]=EVindices(X,parents,[],options);           % no checks
-    end
-  end
-end
-% get optimal grouping
-if isempty(mergevec) && getoptgroup
-  pm=fliplr(cumprod(fliplr(pm)));
-  if ~exist('yn','var') || isempty(yn)
-    yn=EVgetyn(X,parents,options);
-  end
-  mergevec=EVoptgroups(pm,yn,options);
-end
-
-% combine CPTs as needed
-if ~isempty(mergevec) && length(mergevec)<length(parents)
-  k = 0;
-  m = length(mergevec);
-  for i=1:m
-    ind = k+1:k+mergevec(i);
-    %tic
-    %[p2{i},parents2{i}] = mergecpts2(p(ind),X,parents(ind));
-    %tt=toc;
-    %tic
-    [p{i},parents{i}] = mergecpts(p(ind),X,parents(ind),options);
-    %disp(toc/tt)
-    %if ~isequal(p{i},p2{i})
-    %  error('oops')
-    %end
-    k = ind(end);
-  end
-  p = p(1:m);
-  parents = parents(1:m);
-  [Ip,Iy,Jp,Jy,Xp,yn] = EVindices(X,parents,[],options); 
-end
-
-% check if full transition matrix is used
-if m==1
-  p=p{1};
-  EV=@(varargin) EVuseP(p,varargin{:});
-  return
-end
-
-% if indices are not yet obtained then get them now
-if ~exist('Ip','var') 
-  if ~isempty(p)
-    pn=cellfun(@(x)size(x,2),p);
-    [Ip,Iy,Jp,Jy,Xp,yn]=EVindices(X,parents,pn,options); % performs checks on p
-  else
-    [Ip,Iy,Jp,Jy,Xp,yn]=EVindices(X,parents,[],options);    % no checks
-  end
-end
-
-clear X expandall getoptord i m nx order pm
-EV=@(varargin) EVeval(p,Ip,Iy,Jp,Jy,vreorder,useI,usebsxfun,varargin{:}); 
-if nargout>1
-  ws=packworkspace(Ip,Iy,Jp,Jy,Xp,yn,vreorder,mergevec);
-end
-
+alg=3;
+% use this to force factor 2 to use J
+useI = true;
+firstJ=1;
+% J not working for models with noise
+%useI=true;
+%firstJ = ifthenelse(isempty(e),0,m+1);  
+ws = fprocess(p,parents,X,e,options);
+p=ws.p;
+w=ws.w;
+Ip=ws.Ip;
+Iy=ws.Iy;
+Jp=ws.Jp;
+Jy=ws.Jy;
+vreorder = ws.vreorder;
+EV=@(varargin) EVeval(p,w,Ip,Iy,Jp,Jy,vreorder,useI,alg,firstJ,varargin{:}); 
 
 % packworkspace Creates a workspace structure
-function workspace=packworkspace(Ip,Iy,Jp,Jy,Xp,yn,vreorder,mergevec)
+function workspace=packworkspace(p,parents,e,w,Ip,Iy,Jp,Jy,vreorder,mergevec)
+  workspace.p = p;
+  workspace.parents = parents;
+  workspace.e = e;
+  workspace.w = w;
   workspace.Ip=Ip;
   workspace.Iy=Iy;
   workspace.Jp=Jp;
   workspace.Jy=Jy;
-  workspace.Xp=Xp;
-  workspace.yn=yn;
   workspace.vreorder=vreorder;
   workspace.mergevec=mergevec;
   
 % unpackworkspace Extracts the elements of a workspace structure
-function [Ip,Iy,Jp,Jy,Xp,yn,vreorder,mergevec]=unpackworkspace(workspace)
+function [w,Ip,Iy,Jp,Jy,vreorder,mergevec]=unpackworkspace(workspace)
+   w=workspace.w;
   Ip=workspace.Ip;
   Iy=workspace.Iy;
   Jp=workspace.Jp;
   Jy=workspace.Jy;
-  Xp=workspace.Xp;
-  yn=workspace.yn;
   vreorder=workspace.vreorder;
   mergevec=workspace.mergevec;
   
+% fprocess Gets the variables needed to form an EVfunction from a factored model
+% USAGE
+%   ws =fprocess((p,parents,X,e);
+% INPUTS
+%   p       : m-element cell array of conditional probability matrices
+%   parents : m-element cell array of conditioning variable (parent) indices
+%   X       : matrix or cell array of state/action variables
+%   e       : cell array of rv structures (discrete or w/ discrete approximations)
+% OUTPUTS
+%   ws      : workspace structure containing the following fields:
+%               p    - m-element cell array of CPTs
+%               Ip   - m-element cell array of expansion indices for p
+%               Iy   - m-element cell array of expansion indices for p
+%               Jp   - m-element cell array of indices for p (indexed evaluatons)
+%               Jy   - m-element cell array of indices for y (indexed evaluatons)
+%               w    - m-element cell array of probability weights for noise variables
+%               vreorder - reordering index vector to change order of operations
 
-% special case when the full transition matrix is used
-function y=EVuseP(P,v,Ix)
-if nargin==2
-  y=P'*v;
-else
-  y=P(:,Ix)'*v;
+function ws = fprocess(p,parents,X,e,options)
+order=[];
+mergevec=[];
+Ionly=false;
+if exist('options','var') && ~isempty(options)
+  if isfield(options,'order'),       order       = options.order;       end
+  if isfield(options,'mergevec'),    mergevec    = options.mergevec;    end
+  if isfield(options,'Ionly'),       Ionly       = options.Ionly;       end
+end
+m=length(p);
+if nargin < 3, error('must pass 3 inputs'); end
+% get information on random noise (e) variables
+if nargin<4 || isempty(e), e = {};    end
+if ~iscell(e), e={e};  end
+
+% remove unused variables
+[parents,X,e,dx,de] = removevariables(parents,X,e);
+
+% reorder
+vreorder = []; 
+if ~isempty(order) && ~isequal(1:m,order(:)')  
+  % create an index to reorder v
+  pm = cellfun(@(x)size(x,1),p);
+  vreorder = shuffleindex(pm,order,1);
+  p = p(order);
+  parents = parents(order);
 end
 
-function y=EVcombine(EV0,EV1,v,Ix)
-if nargin==3
-  y=EV0(v);
+% reorders e variables so first summed is listed first 
+if isempty(e)
+  eenter = []; eexit = []; evals = {};
 else
-  y=EV1(v,Ix);
+  [parents,e] = ereorder(parents,e,mergevec);
+  [eenter,eexit] = getenterexit(parents,e);
+  evals = cellfun(@(x)x.values,e,'UniformOutput',false);
 end
+% merge cpts
+if isempty(mergevec)
+  options.penalty = 1.5;
+  options.indexed = true;
+  mergevec = EVoptgroups(p,parents,X,e,options);
+end
+k = 0;
+m = length(mergevec);
+for i=1:m
+  ind = k+1:k+mergevec(i);  % merge variables
+  % list of noise variables that can be removed
+  eremove = eenter>=ind(1) & eexit<=ind(end); 
+  [p{i},parents{i}] = mergecpts(p(ind),parents(ind),X,e,eremove);
+  k = ind(end);  
+end
+p = p(1:m);
+parents = parents(1:m);
+% remove unused variables
+[parents,X,e] = removevariables(parents,X,e);
+[eenter,eexit] = getenterexit(parents,e);
+evals = cellfun(@(x)x.values,e,'UniformOutput',false);
+ne = cellfun(@length,evals);
+
+% get the weighting vectors for each stage
+w = cell(1,m);
+if ~isempty(e)
+  eweights=cellfun(@(x)x.cpt,e,'UniformOutput',false);
+  for i = m:-1:1
+    ii = eexit == i;
+    if any(ii)
+      ii = find(ii);
+      wi = eweights{ii(1)};
+      for j=2:length(ii)
+        wi = eweights{ii(j)}*wi';
+        wi = wi(:);
+      end
+      w{i} = wi;
+    end
+  end
+end
+
+[Ip,Iy] = EVindices(parents,X,e,1);
+
+if ~Ionly
+  [Jp,Jy] = EVgetJ(Ip,Iy,eenter,eexit,ne);
+else
+  Jp=[];  Jy=[];
+end
+
+for i=1:m
+  if Ip{i}(end) == numel(Ip{i}), Ip{i} = []; end
+  if Iy{i}(end) == numel(Iy{i}), Iy{i} = []; end
+end
+
+% pack the workspace
+ws.p=p;
+ws.Ip=Ip;
+ws.Iy=Iy;
+ws.Jp=Jp;
+ws.Jy=Jy;
+ws.w=w;
+ws.vreorder=vreorder;
+return
+
+% ereorder Finds the order of noise variables that has them sorted
+% first by how they are summed out in a mergevec operation and then
+% by how the remaining variables are summed out in the EV evaluation
+%
+% INPUTS
+%   parents  : m-element cell array of conditioning variables (parents)
+%   e        : cell array of rv structures (discrete or w/ discrete approximations)
+%   mergevec : m-vector with the size of each group (sum(mergevec)=ds)
+% OUTPUT
+%   parents  : revised parents with new number of noise variables
+%   e        : reordered noise variables
+%   eorder   : new order for the noise variables
+function [parents,e,eorder]=ereorder(parents,e,mergevec)
+% obtain when each noise variable enters and exits
+[eenter,eexit]=getenterexit(parents,e);
+% handle 0 or 1 entering noise terms
+ne = length(eenter);
+eorder = [];
+if ne<=1
+  if ne==1, eorder = 1; end
+  return
+end
+ds=length(parents);
+m = length(mergevec);
+notsummable = eexit>0;
+k = 0;
+for i = 1:m
+  ind = k+1 : k+mergevec(i);
+  summable = find(eenter>=ind(1) & eexit<=ind(end));
+  [~,ii] = sort(eexit(summable));
+  eorder = [eorder; summable(ii)]; %#ok<AGROW>
+  notsummable(summable) = false;
+  k = k + mergevec(i);
+end
+notsummable = find(notsummable); 
+[~,ii] = sort(eexit(notsummable));
+eorder = [eorder; notsummable(ii)]; 
+for i=1:ds
+  ii = parents{i}<0;
+  parents{i}(ii) = -matchindices(-parents{i}(ii),eorder);
+end
+e=e(eorder);
+  
+    
+
+
+
+
+
+function [parents,X,e,dx,de]=removevariables(parents,X,e)  
+m=length(parents);
+de = length(e);
+if iscell(X)
+  dx = length(X);
+else
+  dx = size(X,2);
+end
+% remove any unused variables
+allparents = unique([parents{:}]);
+alle = sort(-allparents(allparents<0));
+dep = length(alle);
+if dep < de
+  for i=1:m
+    ii=parents{i}<0;
+    parents{i}(ii) = -matchindices(-parents{i}(ii),alle);
+  end
+  e=e(alle);
+  de=dep;
+end
+allx = allparents(allparents>0);
+dxp = length(allx);
+if dxp < dx
+  for i=1:m
+    ii=parents{i}>0;
+    parents{i}(ii) = matchindices(parents{i}(ii),allx);
+  end
+  if iscell(X)
+    X=X(allx);
+  else
+    X = unique(X(:,allx),'rows');
+  end
+  dx=dxp;
+end
+
+% EVgetJ generate the J indices 
+% USAGE
+%    [Jp,Jy] = EVgetJ(Ip,Iy);
+% INPUTS
+%   Ip, Iy : index vectors for P and y at each stage relative to combined set
+% OUTPUTS
+%   Jp, Jy : index vectors for P and y at each stage relative to X
+function [Jp,Jy] = EVgetJ(Ip,Iy,eenter,eexit,ne)
+if nargin<3 || isempty(eexit)
+  nonoise = true;
+else
+  nonoise = false;
+end
+m = length(Iy);
+Jp = cell(1,m); 
+Jy = cell(1,m);
+nX = length(Iy{end});
+if nonoise
+  nem = 1;
+else
+  nem = prod(ne(eexit==m));
+  nX = nX/nem;
+end
+J = (1:nX)';  
+for k = m:-1:1
+  kk = k>=eenter & k<=eexit;  
+  nek = prod(ne(kk));
+  if ~isempty(Ip{k}), 
+    Jp{k}=reshape(Ip{k},[],nek);
+    Jp{k} = Jp{k}(J,:); 
+  end
+  if ~isempty(Iy{k}), 
+    Jy{k}=reshape(Iy{k},[],nek);
+    Jy{k} = Jy{k}(J,:); 
+    J = Jy{k}(:,1);
+  end
+  if Jp{k}(end) == numel(Jp{k}), Jp{k} = []; end
+  if Jy{k}(end) == numel(Jy{k}), Jy{k} = []; end
+end
+
 
 % EVeval Evaluates an EV function using EVmergefunc
 % USAGE
-%   y=EVeval(p,Ip,Iy,Jp,Jy,vreorder,useI,v,Ie);
+%   y=EVeval(p,Ip,Iy,Jp,Jy,vreorder,useI,alg,firstJ,v,Ie);
 % INPUTS
 %   p  : 1 x m cell array of conditional probability matrices
 %                ith element has n(i) rows
@@ -235,6 +376,8 @@ end
 %   Jp : 1 x m cell array of expansion indices at each stage relative to X
 %   vreorder : index vector to rearrange v (empty implied no rearrangement)
 %   useI     : 0 to force J indexing at the first iteration
+%   alg      : not used
+%   firstJ   : first step using J indices
 %   v        : prod(n)-vector
 %   Ie       : index of extraction values relative to X - used to evaluate 
 %                the expected value conditioned on selected values of X
@@ -243,122 +386,63 @@ end
 
 % Note: empty index vector avoids unnecessary indexing by indicating that all
 %       columns are used
-function y=EVeval(p,Ip,Iy,Jp,Jy,vreorder,useI,usebsxfun,v,Ie)
-if nargin>9, extract=true; nIe=length(Ie); else extract=false; end
+function y=EVeval(p,w,Ip,Iy,Jp,Jy,vreorder,useI,alg,firstJ,v,Ie)
+if nargin>11, extract=true;   nIe=length(Ie); 
+else          extract=false; 
+end
 if ~isempty(vreorder), v=v(vreorder); end
 m=length(p);
 ni=size(p{1},1);
-if ~extract
-  y = reshape(v,length(v)/ni,ni) * p{1}; 
+
+if ~extract  
+  if isempty(Ip{1})  % check if p{1} needs to be reordered
+     y = reshape(v,[],ni) * p{1};
+  else
+     y = reshape(v,[],ni) * p{1}(:,Ip{1});
+  end
   for i=2:m
-    %y=EVmergefunc(y,Iy{i},p{i},Ip{i});
-    y=indexedmult(y,Iy{i},p{i},Ip{i},false,usebsxfun);
+    y=indexedmult(y,Iy{i},p{i},Ip{i},false,alg,w{i});
   end
 else
-  if useI && nIe>=size(p{1},2)
-    y = reshape(v,length(v)/ni,ni) * p{1}; 
+  % p{1} is not handled correctly in the else clause so avoid it for now
+  if ((useI && nIe*size(Jp{1},2)>=size(p{1},2)) || firstJ>1) && (m>1)
+    if isempty(Ip{1})  % check if p{1} needs to be reordered 
+      y = reshape(v,[],ni) * p{1}; 
+    else
+      y = reshape(v,[],ni) * p{1}(:,Ip{1}); 
+    end
     expanded=false;
   else
     if isempty(Jp{1}),   pind=uint64(Ie);
-    else                 pind=Jp{1}(Ie);
+    else                 pind=Jp{1}(Ie,:);
     end
-    y = reshape(v,numel(v)/ni,ni) * p{1}(:,pind);
+    y = reshape(v,[],ni) * p{1}(:,pind);
     useI=false;
     expanded=true;
   end
   for i=2:m
     % determine if switchover to J indexing should occur (if it hasn't already)
-    if useI && (nIe<=max(length(Iy{i}),size(y,3)) || i==m)
+    if useI && (nIe*size(Jp{i},2)<max(length(Iy{i}),size(y,2)) || i==m) && i>=firstJ
       %disp(['Using J indexing starting in iteration ' num2str(i)])
       useI=false;
     end
     if useI
-      y=indexedmult(y,Iy{i},p{i},Ip{i},false,usebsxfun);
+      y=indexedmult(y,Iy{i},p{i},Ip{i},false,alg,w{i});  
+      if i==m, y = y(Ie); end
     else
-      if expanded, yind=[];
+      if expanded, 
+        yind=[];
       else
         if isempty(Jy{i}), yind=uint64(Ie);
-        else               yind=Jy{i}(Ie);
+        else               yind=Jy{i}(Ie,:);
         end
       end
       if isempty(Jp{i}),   pind=uint64(Ie);
-      else                 pind=Jp{i}(Ie);
+      else                 pind=Jp{i}(Ie,:);
       end
-      y=indexedmult(y,yind,p{i},pind,false,usebsxfun);
+      y=indexedmult(y,yind,p{i},pind,false,alg,w{i});
       expanded=true;
     end
   end
 end
 y=y(:);
-
-% EVgetyn gets the sizes of the cumulative combined parent variables
-% USAGE
-%   yn=EVgetyn(X,parents,pn);
-% INPUTS
-%   X       : matrix of state/action combinations
-%   parents : m-element cell array of conditioning variables (parents)
-%   pn      : m-vector of column sizes of the CPTs (optional to check compatibility)
-% OUTPUTS
-%   yn          : m-vector of # of columns in the output at each evaluation step 
-%
-% parents{i} contains the columns of X that condition the ith variable
-% Thus Xpi=unique(X(:,parents{i}),'rows') contains the unique elements of the
-%   conditioning variables that condition output variable i.
-% It must be the case that the number of rows in Xi matches the number 
-%   of columns in p{i}: size(Xpi,1)=np(i)
-  
-function yn=EVgetyn(X,parents,options)
-  m=length(parents);
-  parentscombined=cell(1,m);
-  parentscombined{1}=parents{1};
-  for i=2:m
-    parentscombined{i}=union(parentscombined{i-1},parents{i});
-  end
-  yn=zeros(1,m);
-  Xi=X;
-  for i=m:-1:2
-    yn(i)=size(Xi,1);
-    if ~isequal(parentscombined{i-1},parentscombined{i})
-      ind=matchindices(parentscombined{i-1},parentscombined{i});
-      [~,Xi]=getI(Xi,ind,options);
-    end
-  end
-  yn(1)=size(Xi,1);
-  
-    
-% matchindices Finds the values of ind1 that match those of ind0
-function ind=matchindices(ind0,ind1)
-  [~,ind]=ismember(ind0,ind1);
-  ind=ind(ind>0);
-
-
-
-% THIS DOES NOT WORK CORRECTLY
-% combines index vectors for group merges  
-function [Ip,Iy,Jp,Jy,pn]=combineindices(mergevec,Ip,Iy,Jp,Jy,pn)
-cmv=cumsum(mergevec);
-m=length(mergevec);
-% need to handle missing index vectors (which indicate that parents and 
-%   parentscombined are identical)
-Jp{1}=Jp{1};
-Jy{1}=ones(size(Jp{1}));
-for i=1:m
-  if i==1, lb=1;
-  else     lb=cmv(i-1)+1;
-  end
-  Jp{i}=Jp{lb};
-  Jy{i}=Jy{lb};
-  Ipi=Ip{cmv(i)};
-  Iyi=Iy{cmv(i)};
-  for j=cmv(i)-1:-1:lb
-    Ipi=Ip{j}(Ipi);
-    Iyi=Iy{j}(Iyi);
-  end
-  Ip{i}=Ipi;
-  Iy{i}=Iyi;
-end
-Ip=Ip(1:m);
-Jp=Jp(1:m);
-Iy=Iy(1:m);
-Jy=Jy(1:m);
-if nargin>=6, pn=pn(cmv); end
