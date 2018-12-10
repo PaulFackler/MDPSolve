@@ -13,7 +13,11 @@
 % the covariance and correlation matrices are rank d-1
 function [mean,covariance,correlation]=dirichletmom(a)
 mean = a/sum(a);
-variance = a.*(sum(a)-a)/(sum(a).^2*(sum(a)+1));
-C = -a(:)*a(:)'/(sum(a).^2*(sum(a)+1));
-covariance=C-diag(diag(C))+diag(variance);
-correlation=covariance./(sqrt(variance)'*sqrt(variance));
+if nargout>1
+  variance = a.*(sum(a)-a)/(sum(a).^2*(sum(a)+1));
+  C = -a(:)*a(:)'/(sum(a).^2*(sum(a)+1));
+  covariance=C-diag(diag(C))+diag(variance);
+  if nargout>2
+    correlation=covariance./(sqrt(variance)'*sqrt(variance));
+  end
+end
