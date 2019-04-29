@@ -21,7 +21,6 @@
 %
 % Options fields:
 %   cleanup  : method used to handle extrapolation (see g2P)
-%
 % 
 function [p,pparents]=gs2ps(g,gparents,s,X,e,options)
 % initializations
