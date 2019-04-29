@@ -148,6 +148,9 @@ function results = mdpsolve_Inf(R,P,d,ns,nx,Ix,Iexpand,colstoch,EV, ...
           ind=ns*xnew+(1-ns:0)';
         end
         rstar=R(ind); rstar=rstar(:);
+        if expandP
+          ind = Iexpand(ind);
+        end
         [vnew,ISflag] = ...
           bicgstabl(@(V) EVitsol(V,ind),rstar,ktol,[],[],[],v);  % update value
       elseif colstoch 
@@ -282,8 +285,8 @@ function [vnew,xnew] = valmax(v)
     if colstoch, vnew=P'*v;
     else         vnew=P*v;
     end
-    if expandP,  vnew=vnew(Iexpand);  end
   end
+  if expandP,  vnew=vnew(Iexpand);  end
   vnew=R+d.*vnew;
   if Xindexed
     [vnew,xnew]=indexmax(vnew,double(Ix),double(ns));  % use mex version for greater speed

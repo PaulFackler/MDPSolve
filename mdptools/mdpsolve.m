@@ -183,9 +183,12 @@ function results = mdpsolve(model,options)
       results.errors={31};  % incorrect algorithm choice
       return
     end
-    if algorithm=='p' && any(EV)
-      warn0{1,end+1}={51}; % Policy iteration not implemented with EV option
-      if model.d<1
+    if algorithm=='p' %&& any(EV)
+      %warn0{1,end+1}={51}; % Policy iteration not implemented with EV option
+      if isfield(model,'d'), discount=model.d;
+      else                   discount=model.discount;
+      end
+      if length(discount)==1 && discount<1
         algorithm='i';
       else
         algorithm='f';

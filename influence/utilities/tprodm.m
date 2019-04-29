@@ -180,7 +180,7 @@ end
 if ~done
   % check if tprod is available and use it if x and y are full
   if issparse(x) || issparse(y) || ~exist('tprod','file') 
-    if ~issparse(x)  % use fs2s 
+    if ~issparse(x) && 0 % use fs2s 
       try
         z=fs2f(x,[x2z;nx],y,[y2z;ny]);
         nz=size(z);

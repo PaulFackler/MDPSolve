@@ -12,7 +12,7 @@ Xvals=[ ...
    3 2];
 delta=0.95;   % discount factor
 D=[0;10;20];  % damage costs
-Cm=4;         % monitoring cost
+Cm=inf;         % monitoring cost
 Ct=20;        % treatment cost
 T=20;         % time horizon
  

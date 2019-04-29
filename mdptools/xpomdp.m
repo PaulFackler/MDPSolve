@@ -80,6 +80,7 @@ KY=getindex(ZO,1:length(indoz),length(indoz)+1:size(ZO,2));
 
 B=simplexgrid(nu,inc,1);
 nb=size(B,1);
+P=full(P);
 % compute the updated belief weights
 Pb=sparse(nb,nos*nb*nox);
 for k=1:ny

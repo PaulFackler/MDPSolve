@@ -119,9 +119,12 @@ if getx
     case 'b'
       parameters=getparameters(n,rv,parents);
       x=betaincinv(z,parameters(:,1),parameters(:,2));
+    case 'burr3'
+      parameters=getparameters(n,rv,parents);
+      x=( z.^(-1./parameters(:,1)) - 1 ).^(-1./parameters(:,2));
     case 'burr12'
       parameters=getparameters(n,rv,parents);
-      x=((1-z).^(-1./parameters(:,2))-1).^(1./parameters(:,1));
+      x=((1-z).^(-1./parameters(:,1))-1).^(1./parameters(:,2));
     case 'k'
       parameters=getparameters(n,rv,parents);
       x=(1-(1-z).^(1./parameters(:,2))).^(1./parameters(:,1));

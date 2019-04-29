@@ -2,7 +2,7 @@
 % USAGE
 %   [p,pparents]=gs2ps(g,gparents,s,X,e,options)
 % INPUTS
-%   g        : m-element cell array of conditional probability matrices
+%   g        : m-element cell array of transition functions
 %   gparents : m-element cell array of conditioning variable (parent) indices
 %   s        : cell array of state variables
 %   X        : matrix or cell array of state/action variables
@@ -15,7 +15,7 @@
 % parent vectors use positive numbers to refer to the X variables and
 %   negative numbers to refer to the e variables
 % gparents and pparents may differ because the variable order for the CPTs
-%   is always ordered first by the X variables and then be the e variables
+%   is always ordered first by the X variables and then by the e variables
 %   and because any e variables associated with only a single state
 %   variable are summed out
 %
@@ -27,7 +27,9 @@ function [p,pparents]=gs2ps(g,gparents,s,X,e,options)
 % initializations
 if nargin<6, options = struct(); end
 if nargin<5, e={}; end
-if isnumeric(g); g={g}; end
+if isa(g,'function_handle'); g={g}; end
+if isnumeric(gparents); gparents={gparents}; end
+if isnumeric(s); s={s}; end
 if isstruct(e); e={e}; end
 
 cleanup = 0;
@@ -47,7 +49,7 @@ A=zeros(ds,de);
 for i=1:ds
   pxi=gparents{i}(gparents{i}>0);
   if any(pxi<1 | pxi>dx)
-    error(['parents{' num2str(i) ' contains incorrect values']);
+    error(['parents{' num2str(i) '} contains incorrect values']);
   end
   pei=-gparents{i}(gparents{i}<0);
   if any(pei<1 | pei>de)

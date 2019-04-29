@@ -3,8 +3,8 @@
 %   P=f2P(f,S,X,w,options);
 % INPUTS
 %   f : density function of form f(S,X,...)
-%   S : ns-row matrix of state variable values
-%   X : nx-row matrix of state/action combinations
+%   S : ns-row matrix of future state variable values
+%   X : nx-row matrix of current state/action combinations
 %   w : ns-vector of quadrature weights [default: w=1]
 %   options: a structure variable
 %           tol: tolerance for setting probabilities to 0

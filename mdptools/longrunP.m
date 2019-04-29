@@ -205,12 +205,17 @@ end
 %   p    : n x 1 long run (stationary) distribution
 %   flag : flag from bicgstab (0 is no problems detected)
 function [p,flag]=getlrp(P)
-tol=1e-8;
-maxit=100;
+tol=1e-10;
+maxit=1000;
+flag=0;
 n=size(P,1);
-[p,flag]=bicgstab(@getres,[1;zeros(n-1,1)],tol,maxit,[],[],ones(n,1)/n);
+p=ones(n,1)/n;
+for i=1:maxit, p0=p; p=P'*p; if norm(p-p0,inf)<tol, break; end; end
+if i>=maxit, flag=1; end
+%[p,flag]=bicgstab(@getres,[1;zeros(n-1,1)],tol,maxit,[],[],ones(n,1)/n);
 p=p/sum(p);
-if nargout==1 && flag ~=0
+%[flag i]
+if nargout==1 && flag ~= 0
   warning('check convergence')
 end
 

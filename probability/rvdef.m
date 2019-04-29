@@ -35,7 +35,8 @@
 %   'ne'       normal (Gaussian)     [mean;standard deviation] evenly spaced values
 %   'g'        Gamma                 [a;b]=[shape;scale]       mean=a*b
 %   'b'        Beta                  [a;b]                     mean=a/(a+b)
-%   'burr12'   Burr-12               [a;b]
+%   'burr3'    Burr-12               [a;b]                     shape parameters
+%   'burr12'   Burr-12               [a;b]                     shape parameters
 %   'k'        Kumaraswamy           [a;b]
 %   'lin'      (1-c)+2cx on [0,1]    [c]                       mean=0.5+c/6 
 %   'tri'      triangular            lower, upper, mode
@@ -128,8 +129,18 @@ switch type
     clear varargin a b
     rv.simfunc = @(u) hermiteinterp(u,v{:});
     rv.ztype='u';
+  case 'burr3'
+    rv=namedcrv('burr3',2,[0,inf],varargin{:});
+    b=varargin{1}(1);  % shape parameter
+    c=varargin{1}(2);  % shape parameter
+    rv.simfunc = @(u) ( u.^(-1./b) - 1 ).^(-1./c);
+    rv.ztype='u';
   case 'burr12'
     rv=namedcrv('burr12',2,[0,inf],varargin{:});
+    b=varargin{1}(1);  % shape parameter
+    c=varargin{1}(2);  % shape parameter
+    rv.simfunc = @(u) ((1-u).^(-1./b)-1).^(1./c);
+    rv.ztype='u';
   case 'k'
     rv=namedcrv('k',2,[0,1],varargin{:});
   case 'lin'
@@ -507,16 +518,32 @@ function [x,w]=bnw(n,parameters)
     [x,w]=qnwbeta(n,parameters(1),parameters(2));
   end
   
-function [x,w]=burr12nw(n,parameters)
+function [x,w]=burr3nw(n,parameters)
 if size(parameters,2)==1
-  if n==1
-    x=parameters(2)*beta(parameters(2)-1/parameters(1),1+1/parameters(1)); w=1;
+  if n==1  % use the mean
+    x=parameters(1)*beta(parameters(1)+1/parameters(2),1-1/parameters(2)); w=1;
   else
     % covers [0.0000001,0.9999999] of the probability range
-    lb=((1-0.0000001).^(-1./parameters(2))-1).^(1./parameters(1));
-    ub=((1-0.9999999).^(-1./parameters(2))-1).^(1./parameters(1));
+    lb=icdfBurr3(0.0000001,1,parameters(1),parameters(2));
+    ub=icdfBurr3(0.9999999,1,parameters(1),parameters(2));
     [x,w]=gausslegendre(n,lb,ub);
-     w=w.*(parameters(1)*parameters(2)*x.^(parameters(1)-1)./(1+x.^parameters(1)).^(parameters(2)+1));
+     w=w.*(parameters(1)*parameters(2)*x.^(-parameters(2)-1).*(1+x.^-parameters(2)).^(-parameters(1)-1));
+     w=w/sum(w);
+  end
+else
+  error('not implemented for multiple sets of parameter values')
+end
+
+function [x,w]=burr12nw(n,parameters)
+if size(parameters,2)==1
+  if n==1  % use the mean
+    x=parameters(1)*beta(parameters(1)-1/parameters(2),1+1/parameters(2)); w=1;
+  else
+    % covers [0.0000001,0.9999999] of the probability range
+    lb=((1-0.0000001).^(-1./parameters(1))-1).^(1./parameters(2));
+    ub=((1-0.9999999).^(-1./parameters(1))-1).^(1./parameters(2));
+    [x,w]=gausslegendre(n,lb,ub);
+     w=w.*(parameters(1)*parameters(2)*x.^(parameters(2)-1)./(1+x.^parameters(2)).^(parameters(1)+1));
      w=w/sum(w);
   end
 else
@@ -524,7 +551,7 @@ else
 end
 
 function [x,w]=knw(n,parameters)
-if n==1
+if n==1  % use the mean
   x=parameters(2)*beta(1+1/parameters(1),parameters(2)); w=1;
 else
   [x,w]=gausslegendre(n,0,1);

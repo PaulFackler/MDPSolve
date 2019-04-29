@@ -75,7 +75,7 @@ fU = @(EH,AD) EH.*min(1,AD/Ngoal);
 Pmin = .5;  Pmax = 8;  Pinc = .5;
 Dmin = .5;  Dmax = 18; Dinc = .5;
 
-P=(Pmin:Pinc:Pmax)';     % pond numbers in millions
+P=(Pmin:Pinc:Pmax)';     % pond numbers in milliopns
 AD=(Dmin:Dinc:Dmax)';    % population in millions
 HI=(1:4)';               % harvest intensity
 
@@ -88,6 +88,12 @@ np=5; % number of rain values
 HP =rvdef('n',[0;1]         ,nk); % harvest survival noise
 PP =rvdef('n',[0;sqrt(nvar)],nn); % population noise
 RP =rvdef('n',[0;sqrt(evar)],np); % rain noise
+
+%%
+p=cell(1,2); 
+p{1}=g2P(fP,P,P,RP); 
+g2=@(X,e)fAD(X(:,1),X(:,2),X(:,3),e(:,1),e(:,2));
+p{2}=g2P(g2,AD,rectgrid(AD,AS,JD),{HP,PP});
 
 %%
 D=add2diagram([],'ponds',             's',1,{} ,P);

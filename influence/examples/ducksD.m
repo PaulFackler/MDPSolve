@@ -14,8 +14,7 @@
 % K: kill rate (HR/(1-c))
 
 %close all
-clear variables
-close all
+%clear variables
 
 phi   = 0.897;  % ratio F to M summer survival (p. 33)
 m     = 0.5246; % proportion of males in breeding population (p. 33)
@@ -72,16 +71,16 @@ Nnext = @(N,J,h,PN) gams*N.*(m*Surv(h,s0ma) + (1-m)*(Surv(afvr*h,s0fa) + ...
 Harvest = @(N,J,HI) gams*(m/phi+(1-m)*(afvr + (gamr*(jfvr+jmvr))*J)).*mk(HI).*N;
             
 Utility=@(H,AD) H.*min(1,AD/Ngoal); 
-Utility=@(H,AD) H; 
+%Utility=@(H,AD) H; 
 
 % discretization for state variables
-Nmin = .5;  Nmax = 18; Ninc = .5;
-Pmin = .5;  Pmax = 8;  Pinc = .5;
+Nmin = 1;  Nmax = 21; Ninc = .1;
+Pmin = 0;  Pmax = 8;  Pinc = .1;
 
 % quadrature is used with the following number of nodes
-np=11; % number of rain values 
-nk=11; % number of harvest noise values
-nn=11; % number of population noise values
+nk=21; % number of harvest noise values
+nn=21; % number of population noise values
+np=21; % number of rain values 
 
 N=(Nmin:Ninc:Nmax)';     % population in millions
 P=(Pmin:Pinc:Pmax)';     % pond numbers in millions
@@ -89,7 +88,7 @@ HI=(1:4)';               % harvest intensity
 
 % use RV structures for the noise terms
 cptH = rvdef('n',[0;1]         ,nk); % harvest survival noise
-cptN = rvdef('n',[0;sqrt(nvar)],nk); % population noise
+cptN = rvdef('n',[0;sqrt(nvar)],nn); % population noise
 cptR = rvdef('n',[0;sqrt(evar)],np); % rain noise
 %%
 D=add2diagram([],'ponds',             's',1,{}                                                                ,rvdef('v',[0,inf],P));
@@ -114,15 +113,17 @@ D.attachments=[ ...
  6  4  5  4  5  5  5  5  6  4  4  4  5  5  4;
  2  8  1  1  1  8  1  1  2  8  8  8  1  7  1]';
 
-figure(1); clf; set(gcf,'units','pixels','position',[680  450  1200 500]); drawdiagram(D)
+figure(1); clf; 
+set(gcf,'units','pixels','position',[680  450  1200 500]); 
+drawdiagram(D)
 
 %%
-discretize=1; % 0 for simulation method
+discretize = 1; % 0 for simulation method
 
 if discretize
   t=cputime;
-  options=struct('ptype',1,'forcefull',0,'orderalg',0,'cleanup',0,'orderdisplay',1,'passforward',1,'print',1); 
-  model=d2model(D,options);
+  options=struct('ptype',1,'forcefull',0,'orderalg',0,'cleanup',2,'orderdisplay',1,'passforward',1,'print',1); 
+  [model,svars,xvars,DD]=d2model(D,options);
   fprintf('time taken to set up model using d2model: %6.3f\n',cputime-t)
   if isnumeric(model.P)
     PP=model.P;
@@ -153,6 +154,12 @@ if isfield(results,'Ixopt') && ~isempty(results.Ixopt)
   legend('restricted','conservative','moderate','liberal','location','eastoutside')
 else
   mdpreport(results)
+end
+
+modelD = model;
+if isfield(options,'ptype') && options.ptype == 0
+  ws=functions(modelD.P); ws=ws.workspace{1};
+  F=ws.F;
 end
 
 %% plot long run marginal and joint distributions

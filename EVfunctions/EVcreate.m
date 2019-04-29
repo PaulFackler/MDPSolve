@@ -178,8 +178,6 @@ else
 end
 % merge cpts
 if isempty(mergevec)
-  options.penalty = 1.5;
-  options.indexed = true;
   mergevec = EVoptgroups(p,parents,X,e,options);
 end
 k = 0;
@@ -387,8 +385,10 @@ end
 % Note: empty index vector avoids unnecessary indexing by indicating that all
 %       columns are used
 function y=EVeval(p,w,Ip,Iy,Jp,Jy,vreorder,useI,alg,firstJ,v,Ie)
-if nargin>11, extract=true;   nIe=length(Ie); 
-else          extract=false; 
+if nargin>11, 
+  extract=true;   nIe=length(Ie); 
+else
+  extract=false;
 end
 if ~isempty(vreorder), v=v(vreorder); end
 m=length(p);

@@ -36,7 +36,7 @@ nFEC='Fecundity';
 nREC='Recruitment';
 nQ  ='Quality';
 
-hn = 5;         % number of noise values
+hn = 7;         % number of noise values
 dinc=2;
 w = [1; 0.25; 0.75; 2]; % weights on harvest levels
 w = [1; 1; 1; 1]; % weights on harvest levels
@@ -50,7 +50,7 @@ mDI = (1:dinc:11)';% Density Immature Bucks
 mDM = (1:dinc:25)';% Density Mature Bucks	
 
 % harvest noise
-[mHN,pHN]=qnwnormeven(6,0,1);     % harvest survival noise
+[mHN,pHN]=qnwnormeven(hn,0,1);     % harvest survival noise
 pHN=rvdef('n',[0;1],{mHN,pHN});
 mk=[0.01 0.1 0.15]';              % mean harvest rates
 sd=[0.001 0.01 0.02]';            % std. dev. of harvest rates
@@ -101,32 +101,33 @@ fU = @(Q,H) Q.*H; % make quality and weighted harvest the objective
 pU = {nQ,nH};
 
 %% create diagram
-D=add2diagram([],nHI,'a',1,{},HI);
-
+D=[];
 % Initial population states
+D=add2diagram(D,nDM,'s',1,{},mDM);
+D=add2diagram(D,nDI,'s',1,{},mDI);
 D=add2diagram(D,nDD,'s',1,{},mDD);
 D=add2diagram(D,nDF,'s',1,{},mDF);
-D=add2diagram(D,nDI,'s',1,{},mDI);
-D=add2diagram(D,nDM,'s',1,{},mDM);
+% action
+D=add2diagram(D,nHI,'a',1,{},HI);
 
 % harvest noise variables
+D=add2diagram(D,nHNM,'c',0,{},pHN);
+D=add2diagram(D,nHNI,'c',0,{},pHN);
 D=add2diagram(D,nHND,'c',0,{},pHN);
 D=add2diagram(D,nHNF,'c',0,{},pHN);
-D=add2diagram(D,nHNI,'c',0,{},pHN);
-D=add2diagram(D,nHNM,'c',0,{},pHN);
 
 % other mortality rates
+D=add2diagram(D,nOMM,'c',0,{},pOMM);
+D=add2diagram(D,nOMI,'c',0,{},pOMI);
 D=add2diagram(D,nOMD,'c',0,{},pOMD);
 D=add2diagram(D,nOMF,'c',0,{},pOMF);
-D=add2diagram(D,nOMI,'c',0,{},pOMI);
-D=add2diagram(D,nOMM,'c',0,{},pOMM);
 D=add2diagram(D,nFP ,'c',0,{},pFP );
 
 % harvest rates
+D=add2diagram(D,nHRM,'c',0,{nHNM,nHI},fHR);
+D=add2diagram(D,nHRI,'c',0,{nHNI,nHI},fHR);  
 D=add2diagram(D,nHRD,'c',0,{nHND,nHI},fHR);
 D=add2diagram(D,nHRF,'c',0,{nHNF,nHI},fHR);
-D=add2diagram(D,nHRI,'c',0,{nHNI,nHI},fHR); 
-D=add2diagram(D,nHRM,'c',0,{nHNM,nHI},fHR); 
 
 D=add2diagram(D,nH  ,'c',1,pH,fH); 
 
@@ -140,24 +141,24 @@ D=add2diagram(D,nREC,'c',1,pREC,fREC);
 D=add2diagram(D,nQ  ,'c',1,pQ  ,fQ  );
 
 % Future population states 
+D=add2diagram(D,[nDM '+'],'f',1,pDM,rvdef('f',fDM,mDM)); 
+D=add2diagram(D,[nDI '+'],'f',1,pDI,rvdef('f',fDI,mDI)); 
 D=add2diagram(D,[nDD '+'],'f',1,pDD,rvdef('f',fDD,mDD)); 
 D=add2diagram(D,[nDF '+'],'f',1,pDF,rvdef('f',fDF,mDF)); 
-D=add2diagram(D,[nDI '+'],'f',1,pDI,rvdef('f',fDI,mDI)); 
-D=add2diagram(D,[nDM '+'],'f',1,pDM,rvdef('f',fDM,mDM)); 
 
 % Reward
 D=add2diagram(D,'Utility','r',0,pU,fU);
 
 D.locs=[ ...
-0.189 0.169 0.141 0.128 0.105 0.315 0.294 0.271 0.235 0.581 0.581 0.581 0.581 0.399 0.686 0.631 0.588 0.530 0.622 0.374 0.251 0.290 0.339 0.434 0.628 0.774 0.889 0.889 0.889 0.889 0.889;
-0.740 0.669 0.600 0.529 0.460 0.948 0.898 0.850 0.800 0.421 0.370 0.321 0.273 0.418 0.948 0.898 0.850 0.800 0.708 0.324 0.147 0.208 0.265 0.061 0.061 0.061 0.669 0.600 0.529 0.460 0.303]';
+0.169 0.141 0.128 0.105 0.189 0.315 0.294 0.271 0.235 0.581 0.581 0.581 0.581 0.399 0.686 0.631 0.588 0.530 0.622 0.374 0.251 0.290 0.339 0.434 0.628 0.774 0.889 0.889 0.889 0.889 0.889;
+0.669 0.600 0.529 0.460 0.740 0.948 0.898 0.850 0.800 0.421 0.370 0.321 0.273 0.418 0.948 0.898 0.850 0.800 0.708 0.324 0.147 0.208 0.265 0.061 0.061 0.061 0.669 0.600 0.529 0.460 0.303]';
 D.attachments=[ ...
 19 26 13 18  5 12 17  4 11 16  3 12 17  4 25 10 15  2 11 16  3 10 15  2 23 22 21 25 20 23 24 14 23  5  4  3  2  5  4  2  5  4  5  4  3  2 18 17 16 15  5  4  3  2  1  9  1  8  1  7  1  6;
 31 31 30 30 30 30 30 30 29 29 29 29 29 29 28 28 28 28 27 27 27 27 27 27 26 26 26 26 26 25 25 25 24 23 23 23 23 22 22 22 21 21 20 20 20 20 19 19 19 19 19 19 19 19 18 18 17 17 16 16 15 15;
  4  6  5  5  5  5  5  5  5  5  5  5  5  5  6  5  5  5  5  5  5  5  5  5  5  5  5  5  5  4  5  4  4  4  4  4  4  4  4  4  4  4  4  4  4  4  4  4  4  4  6  6  6  6  5  5  5  5  5  5  5  5;
  1  1  2  8  1  2  8  1  2  8  1  2  8  1  2  2  8  1  2  8  1  2  8  1  8  8  8  1  8  1  1  8  1  8  8  8  8  8  8  8  8  8  8  8  8  8  8  8  8  8  1  1  1  1  1  1  1  1  1  1  1  1]';
-figure(1); set(1,'units','normalized','position',[.05 .1 .85 .8])
-drawdiagram(D,struct('fontsize',0.02))
+%figure(1); set(1,'units','normalized','position',[.05 .1 .85 .8])
+%drawdiagram(D,struct('fontsize',0.02))
 
 %%
 t=cputime;
@@ -170,6 +171,8 @@ if isnumeric(model.P)
 else
   EV=model.P;
 end
+return
+
 
 model.d=0.98;
 options=struct('algorithm','i','print',2);

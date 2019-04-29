@@ -91,9 +91,16 @@ function [errors,warnings]=mdp_checks(R,P,d,ns,nx,Ix,Iexpand,colstoch,Xindexed,e
    try
      if nargin(P)==1
        ev=P(ones(ns,1));
-       if ndims(ev)>2 || any(size(ev)~=[nx 1])
-         if debug, error(' '); end
-         errors{end+1}={13,nx};
+       if expandP
+         if ndims(ev)>2 || any(size(ev)~=[ns 1])
+           if debug, error(' '); end
+           errors{end+1}={13,ns};
+         end
+       else
+         if ndims(ev)>2 || any(size(ev)~=[nx 1])
+           if debug, error(' '); end
+           errors{end+1}={13,nx};
+         end
        end
      else
        ev=P(ones(ns,1),(1:ns)');

@@ -252,16 +252,20 @@ actions=find(ismember(D.types,{'a','d'}));
 rewards=find(ismember(D.types,{'r','u'}));
 parameters= find(ismember(D.types,'p'));
 if length(rewards)~=1
-  error('A single reward (r) variable must be specified')
+  if isempty(rewards)
+    disp('No reward (u/r) variable is specified')
+  else
+    error('A single reward (u/r) variable must be specified')
+  end
 end
 if length(states)+length(parameters)<1
   error('At least one state (s) variable or parameter variable (p) must be specified')
 end
 if length(fstates)<1
-  %error('At least one future state (f) variable must be specified')
+  disp('No future state (f) variable is specified')
 end
 if length(actions)<1
-  error('At least one action (d) variable must be specified')
+  disp('No action (d/a) variable is specified')
 end
 if length(states)~=length(fstates)
   %error('There must be the same number of current (s) and future (f) state variables')
@@ -274,44 +278,51 @@ for i=1:length(fstates)
 end
 [junk,ii]=ismember(fnames,D.names(states)); %#ok<*ASGLU>
 if any(ii==0)
-  %error('Current (s) and future (f) state variables don''t match')
+  disp('Current (s) and future (f) state variables don''t match')
+  fstates = [];
+else
+  fnames=D.names(states);
+  for i=1:length(fstates)
+    fnames{i}=[fnames{i} '+'];
+  end
+  [junk,fstates]=ismember(fnames,D.names);
 end
-fnames=D.names(states);
-for i=1:length(fstates)
-  fnames{i}=[fnames{i} '+'];
-end
-[junk,fstates]=ismember(fnames,D.names);
 xvars=[parameters(:); actions(:); states(:)]';
 
 if reps==0
-  if print>0
-    disp(' ')
-    disp('computing reward function')
-    start=cputime;
-  end
   uvar=find(ismember(D.types,{'u','r'}));
-  options.getfunc=0;
-  options.passforward=passforward;
-  [R,~,~,Iexpand,DD]=condexp(D,uvar,xvars,options);
-  if ~isempty(Iexpand)
-    R=R(Iexpand);  
-  end
-  X=dvalues(D,xvars,'m');
-  if any(isinf(R))
-    feasible=R>-inf;
-    R=R(feasible);
-    X=X(feasible,:);
+  if uvar>0
+    if print>0
+      disp(' ')
+      disp('computing reward function')
+      start=cputime;
+    end
+    options.getfunc=0;
+    options.passforward=passforward;
+    [R,Iexpand,~,~,DD]=condexp(D,uvar,xvars,options);
+    if ~isempty(Iexpand)
+      R=R(Iexpand);  
+    end
+    X=dvalues(D,xvars,'m');
+    if any(isinf(R))
+      feasible=R>-inf;
+      R=R(feasible);
+      X=X(feasible,:);
+    else
+      feasible=[];
+    end
+    model.R=R;
+    if print>0
+      fprintf('time taken to compute reward: %8.3f\n',cputime-start)
+    end
   else
+    X=dvalues(D,xvars,'m');
     feasible=[];
+    DD=D;
   end
-  
-  model.R=R;
   model.X=X;
   model.Ix=getI(X,[1:length(parameters) length(actions)+1:length(xvars)]);
   
-  if print>0
-    fprintf('time taken to compute reward: %8.3f\n',cputime-start)
-  end
   options.feasible=feasible;
 
   if ptype==1  % use transition matrix
@@ -320,7 +331,7 @@ if reps==0
       disp('computing transition matrix')
       start=cputime;
     end
-    [model.P,V,cost,Iexpand] = conditional(DD,[fstates y],xvars,options);
+    [model.P,Iexpand,V,cost] = conditional(DD,[fstates y],xvars,options);
     if ~isempty(Iexpand), 
       if length(Iexpand)<size(model.P,2)
         model.P=model.P(:,Iexpand);
@@ -338,7 +349,7 @@ if reps==0
       start=cputime;
     end
     options.getfunc=true;
-    [model.P,V,cost]  = condexp(DD,fstates,xvars,options);
+    [model.P,Iexpand,V,cost]  = condexp(DD,fstates,xvars,options);
     model.EV = true;
     if print>0
       fprintf('time taken to compute conditional expectation function: %8.3f\n',cputime-start)

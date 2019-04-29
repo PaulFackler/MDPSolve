@@ -19,7 +19,7 @@
 % Additional information can be added to this plot including titles, axis labels, 
 % and legends. It can be also called to plot in subplot.
 
-function h=beliefplot(b,z,zvals,tsymbol,loffset,toffset)
+function [h,xx,yy]=beliefplot(b,z,zvals,tsymbol,loffset,toffset)
 if nargin<6 || isempty(toffset)
   toffset=0.09;
 end
@@ -59,8 +59,9 @@ else
 end
 
 % plot squares around each belief point
-h=patch(xx*ones(1,n)+ones(4,1)*x',yy*ones(1,n)+ones(4,1)*y',z', ...
-    'Edgecolor','none','linestyle','none');
+xx = xx*ones(1,n)+ones(4,1)*x';
+yy = yy*ones(1,n)+ones(4,1)*y';
+h=patch(xx,yy,z','Edgecolor','none','linestyle','none');
 % defines the relative color 
 if diff(clim)>0, set(gca,'clim',clim); end
 % is this needed ?

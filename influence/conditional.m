@@ -1,6 +1,6 @@
 % conditional Constructs the conditional distribution for a subset of variables
 % USAGE
-%   P=conditional(D,clist,plist,options);
+%   [P,Iexpand,V,cost,DD] = conditional(D,clist,plist,options);
 % INPUTS
 %   D       : an influence diagram structure
 %   clist   : a cell array of variable names of output variables 
@@ -14,10 +14,6 @@
 %   options : structure variable with control options (described below)
 % OUTPUTS
 %   P        : conditional probability matrix
-%   V        : (m-1)x7 cell array containing information on the order
-%                factors are processed and the variables involved
-%                Use with orddisp function.
-%   cost     : total processing cost (number of multiply operations)
 %   Iexpand  : If requested Iexpand is an index vector of length
 %                np=size(dvalues(D,plist,'m'),1) that can be used to expand
 %                the columns of P if some of the variables in plist are
@@ -26,6 +22,10 @@
 %                  P=P(:,Iexpand);
 %                has the proper size. If not requested Iexpand is applied
 %                to the P matrix before returning it.
+%   V        : (m-1)x7 cell array containing information on the order
+%                factors are processed and the variables involved
+%                Use with orddisp function.
+%   cost     : total processing cost (number of multiply operations)
 %   DD       : the diagram after preprocessing
 %
 % Options:
@@ -74,7 +74,7 @@
 % For more information, see the Open Source Initiative OSI site:
 %   http://www.opensource.org/licenses/bsd-license.php
 
-function [P,V,cost,Iexpand,DD]=conditional(D,clist,plist,options)
+function [P,Iexpand,V,cost,DD]=conditional(D,clist,plist,options)
 % default option values
 if nargin<4, options=[]; end
 passforward     = 1;   % pass functions forward to children
@@ -168,6 +168,8 @@ end
 % make sparse if this will help
 if nnz(P)/numel(P)<spthreshold
    P=sparse(P);
+else
+  P=full(P);
 end
 if nargout<4 && ~isempty(Iexpand), P=P(:,Iexpand); end
 

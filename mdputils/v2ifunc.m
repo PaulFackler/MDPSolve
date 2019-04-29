@@ -61,6 +61,7 @@ function ind=v2ic(x,varargin)
     ind = ind*length(x{i}) + tablookup(x{i},varargin{i});
   end
   ind=ind+1;
+
  
 % v2i function when X is passed as a single matrix
 function ind=v2im(x,X)

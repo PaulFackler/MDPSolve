@@ -1,14 +1,14 @@
-clearclose
+%clearclose
 disp('Anderson (1975) duck harvest model using g2EV')
 
 % model parameters
-delta  = 0.98;               % discount factor 
+delta  =  0.98;              % discount factor 
 mu     = 16.46;              % rainfall mean
-sigma2 = 4.41;               % rainfall variance
+sigma2 =  4.41;              % rainfall variance
 % pond transition function
 Pplus = @(Pn,Rn) -2.76 + 0.391*Pn + 0.233*Rn;  
 % population transition function
-Nplus = @(N,P,D,Hn) Anderson75tran(N,P,D,Hn,0);
+Nplus = @(N,P,Hn,D) Anderson75tran(N,P,D,Hn,0);
 
 % harvest shock
 hshock=[0.9;1;1.1];
@@ -39,7 +39,7 @@ X=X(feasible,:);
 % use g2EV to get EV function
 goptions=struct('cleanup',cleanup,'order',[2 1]);
 %goptions=struct('cleanup',cleanup);
-xelist={[1 2 3 -2],[2 -1]};
+xelist={[1 2 -2 3],[2 -1]};
 tic
 [EV,pp,Is,ws]=g2EV({Nplus Pplus},{n,p},X,e,xelist,goptions);
 fprintf('time to obtain EV function:       %8.4f\n',toc)
@@ -49,7 +49,7 @@ ii=getI(X,2); PP=kroncol(pp{1},pp{2}(:,ii));
 fprintf('time to obtain P from EV results: %8.4f\n',toc)
 
 % use g2P to get transition matrix
-transfunc=@(x,e) [Anderson75tran(x(:,1),x(:,2),x(:,3),e(:,2),0) Pplus(x(:,2),e(:,1))];
+transfunc=@(x,e) [Nplus(x(:,1),x(:,2),e(:,2),x(:,3)) Pplus(x(:,2),e(:,1))];
 goptions=struct('cleanup',cleanup);
 tic
 P=g2P(transfunc,{n,p},X,e,[],goptions);

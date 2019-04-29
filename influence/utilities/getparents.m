@@ -41,7 +41,7 @@ if ~all(cellfun(@isnumeric,D.parents))
   n=length(D.names);
   parents=cell(1,n);
   for i=1:n
-    [check,parents{i}]=ismember(D.parents{i},D.names);
+    [~,parents{i}]=ismember(D.parents{i},D.names);
   end
 else
   parents=D.parents;

@@ -186,7 +186,7 @@ for t=1:T
   if ~isempty(A)
     if isnumeric(A)
       %ind=gridmatch(St(stateind),statevals); % get the index values of the states
-      aind=stateindexfunc(St{svars});
+      aind=max(1,stateindexfunc(St{svars}));
     else
       At=A([St{svars}]);
     end
@@ -228,8 +228,7 @@ for t=1:T
           St{i}=cpds{i}.simfunc(zit,St{parents{i}});
         end
       case 3                            % use rvgen - no parents
-        zit=rvgen(reps,cpds{i},[],zit); % store the variable to avoid re-generating it
-        St{i}=zit;
+        [St{i},zit]=rvgen(reps,cpds{i},[],zit); % store the variable to avoid re-generating it
       case 4                            % use rvgen - has parents
         [St{i},zit]=rvgen(reps,cpds{i},St(parents{i}),zit);
       end

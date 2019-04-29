@@ -1,17 +1,21 @@
 % freudenthal Freudenthal interpolation basis matrix for a lattice
 % USAGE
-%   B=freudenthal(S,s,cleanup);
+%   B=freudenthal(S,s,cleanup,transpose);
 % INPUTS
-%   S    : Nxd matrix of evaluation points
-%   s    : d element cell array of vectors defining the lattice
-%   cleanup :  0/1/2 - Determines how extrapolation is handled
-%              0) no adjustments
-%              1) negative values are set to 0 and values are 
-%                   adjusted so columns sum to 1.
-%              2) values of any variable beyond bounds are set to
-%                   the nearby boundary value
+%   S         : Nxd matrix of evaluation points
+%   s         : d element cell array of vectors defining the lattice
+%   cleanup   :  0/1/2 - Determines how extrapolation is handled
+%                0) no adjustments
+%                1) negative values are set to 0 and values are 
+%                     adjusted so columns sum to 1.
+%                2) values of any variable beyond bounds are set to
+%                     the nearby boundary value
+%   transpose : 1 to return Nxn basis matrix
 % OUTPUT
-%   B    : nxN matrix of basis values (n is the number of grid points)
+%   B      : nxN matrix of basis values (n is the number of grid points)
+% or
+%   bind   : (d+1)x N matrix of indices for the non-zero basis values
+%   lambda : (d+1)x N matrix of the non-zero basis values
 %
 % s defines a regular lattice containing n points, where n is the
 % product of the numbers of values in vectors in s. If f is an 1xn vector
@@ -56,8 +60,9 @@
 % For more information, see the Open Source Initiative OSI site:
 %   http://www.opensource.org/licenses/bsd-license.php
 
-function B=freudenthal(S,s,cleanup)
-if nargin<3, cleanup=false; end
+function [B,lambda] = freudenthal(S,s,cleanup,transpose)
+if nargin<3, cleanup   = false; end
+if nargin<4, transpose = false; end
 if iscell(s)
   d=length(s);
 else
@@ -108,9 +113,16 @@ for i=1:dim
   ind=ind+bw(p(:,i));
   bind(:,i+1)=ind;
 end
-B=sparse(bind,(1:N)'*ones(1,dim+1),lambda,prod(n),N);
-% uncomment next line (and comment previous one) to transpose B
-%B=sparse((1:N)'*ones(1,dim+1),bind,lambda,N,prod(n));
+
+if nargout>1
+  B = bind;
+else
+  if transpose
+    B=sparse((1:N)'*ones(1,dim+1),bind,lambda,N,prod(n));
+  else
+    B=sparse(bind,(1:N)'*ones(1,dim+1),lambda,prod(n),N);
+  end
+end
 end
 
 % Finds the low vertex of the simplex containing S

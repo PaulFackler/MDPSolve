@@ -1,10 +1,12 @@
 % adjacency Creates an adjacency matrix for a influence diagram
+% USAGE
+%   [A,AA]=adjacency(D);
 % INPUTS
 %   D  : an influence diagram structure 
 % OUTPUTS
 %   A  : sparse adjacency matrix with A(i,j)=1 if name{i} is in the
 %          parents{j} list
-%   AA : sparse decendants matrix with AA(i,j)=k if there are
+%   AA : sparse descendants matrix with AA(i,j)=k if there are
 %          k paths from variable i to variable j
 
 % MDPSOLVE: MATLAB tools for solving Markov Decision Problems

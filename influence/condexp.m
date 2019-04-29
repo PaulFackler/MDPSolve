@@ -3,7 +3,7 @@
 %   a function that takes an nc vector and returns an np vector.
 % It must be the case that the parents are not descendants of the children.
 % USAGE
-%   [Ef,Iexpand,V,cost,DD]=condexp(D,clist,plist,options);
+%   [EV,Iexpand,V,cost,DD] = condexp(D,clist,plist,options);
 % INPUTS
 %   D      : an influence diagram (created using add2diagram)
 %   clist  : the variables (children) over which expectations are computed
@@ -13,20 +13,20 @@
 %              numbers or a cell array of diagram names (strings)
 %   options : structure variable with control options (described below)
 % OUTPUTS
-%   Ef       : a function handle for a function of the form Ef(x)
+%   EV       : a function handle for a function of the form EV(v) or EV(v,I)
 %                where x is a vector of length nc=size(dvalues(D,clist,'m'),1)
-%   V        : (m-1)x7 cell array containing information on the order
-%                factors are processed and the variables involved
-%                Use with orddisp function.
-%   cost     : total processing cost (number of multiply operations)
 %   Iexpand  : If requested Iexpand is an index vector of length
 %                np=size(dvalues(D,plist,'m'),1) that can be used to expand
 %                the output of Ef if some of the variables in plist are
 %                not ancestors of the clist variables.
 %                Thus 
-%                  efx=Ef(x); efx=efx(Iexpand);
+%                  efx=EV(v); efx=efx(Iexpand);
 %                has the proper size. If not requested Iexpand is applied
-%                in the Ef function.
+%                in the EV function.
+%   V        : (m-1)x7 cell array containing information on the order
+%                factors are processed and the variables involved
+%                Use with orddisp function.
+%   cost     : total processing cost (number of multiply operations)
 %
 % Options:
 %   passforward  : 1 to pass functions forward [default]
@@ -75,14 +75,14 @@
 % For more information, see the Open Source Initiative OSI site:
 %   http://www.opensource.org/licenses/bsd-license.php
 
-function [Ef,V,cost,Iexpand,DD]=condexp(D,clist,plist,options)
+function [EV,Iexpand,V,cost,DD]=condexp(D,clist,plist,options)
 % default option values
 if nargin<4, options=[]; end
 passforward     = 1;   % pass functions forward to children
 cleanup         = 0;   % used to handle extrapolation
 forcefull       = 0;   % 1 to force sumproduct to use full factors
 orderdisplay    = 0;   % displays sum-product order information
-getfunc         = 0;   % 1 to get a function handle
+getfunc         = 1;   % 1 to get a function handle
 if nargin>=4 && ~isempty(options)
   if isfield(options,'passforward'),  passforward=options.passforward;   end
   if isfield(options,'cleanup'),      cleanup=options.cleanup;           end
@@ -103,7 +103,7 @@ if ~isnumeric(clist), [junk,clist]=ismember(clist,D.names); end %#ok<*ASGLU>
 if ~isnumeric(plist), [junk,plist]=ismember(plist,D.names); end
 
 if length(clist)>1 && ~getfunc
-  error('clist must be a singleton if getfunc option is false')
+  % error('clist must be a singleton if getfunc option is false')
 end
 
 DD=D;
@@ -178,10 +178,11 @@ n=DD.sizes;
 if getfunc
   F=[{[]} F];
   Fvars=[{fliplr(clist)} Fvars];
+  options.makefunc=true;
 end
-[Ef,V,cost,Iexpand]=sumproduct(F,Fvars,n,[],fliplr(plist),options);
-if isnumeric(Ef)
-  Ef=Ef(:);
+[EV,V,cost,Iexpand]=sumproduct(F,Fvars,n,[],fliplr(plist),options);
+if isnumeric(EV)
+  EV=EV(:);
 end
 
 % pass factor names to orderdisp for display purposes
